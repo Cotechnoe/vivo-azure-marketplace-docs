@@ -37,6 +37,7 @@ Full deployment and administration documentation is available in the **[project 
 | [Loading Sample Data](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Loading-Sample-Data) | Load sample data to explore VIVO (with and without i18n) |
 | [Exploring VIVO](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Exploring-VIVO) | Navigate the interface, search, profiles, Site Admin |
 | [Troubleshooting](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Troubleshooting) | Common deployment and runtime issues |
+| [Support](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Support) | Publisher and community support channels, contact information |
 
 ---
 
