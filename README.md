@@ -33,6 +33,7 @@ Full deployment and administration documentation is available in the **[project 
 |------|-------------|
 | [SSH Connection](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/SSH-Connection) | Connecting to your VM with an SSH key |
 | [Post-Deployment Verification](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Post-Deployment-Verification) | Verifying services and accessing VIVO |
+| [HTTPS / TLS Certificate](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/HTTPS-TLS-Certificate) | Let's Encrypt auto-provisioning, renewal, and custom certs |
 | [Configuring VIVO](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Configuring-VIVO) | Namespace, credentials, and i18n settings |
 | [Loading Sample Data](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Loading-Sample-Data) | Load sample data to explore VIVO (with and without i18n) |
 | [Exploring VIVO](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Exploring-VIVO) | Navigate the interface, search, profiles, Site Admin |
