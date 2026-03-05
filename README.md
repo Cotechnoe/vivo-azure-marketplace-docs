@@ -19,7 +19,7 @@ This Azure Marketplace offer deploys a fully configured VIVO instance on a dedic
 - VM provisioning (Ubuntu, Standard D2s v3 or larger)
 - VIVO + Apache Solr + Tomcat + Nginx stack installation
 - Institution-specific configuration (namespace, admin credentials, language settings)
-- TLS termination via Nginx with a self-signed certificate
+- TLS termination via Nginx with an automatically provisioned Let's Encrypt certificate
 
 After deployment, VIVO is immediately accessible at `https://<public-ip>/`.
 
