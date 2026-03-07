@@ -2,6 +2,8 @@
 
 > **Marketplace image version:** VIVO [1.16.0](https://github.com/vivo-project/VIVO/releases/tag/vivo-1.16.0)
 
+> 🇫🇷 Cette page est également disponible en français : [README-fr.md](README-fr.md)
+
 **VIVO** is an open source research networking platform that creates an actionable, connected map of the scholarly work of your institution. It enables academic and research organizations to:
 
 - **Connect** researchers, publications, grants, courses, and organizations into a unified semantic graph
