@@ -29,19 +29,19 @@ Après le déploiement, VIVO est immédiatement accessible à l'adresse `https:/
 
 ## Documentation
 
-La documentation complète de déploiement et d'administration est disponible dans le **[wiki du projet](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Home-fr)**.
+La documentation complète de déploiement et d'administration est disponible dans le **[wiki du projet](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/fr_Home)**.
 
 | Page | Description | English |
 |------|-------------|---------|
-| [Déployer depuis le Marketplace](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Deploying-from-Marketplace-fr) | Déployer VIVO depuis Azure Marketplace | [Deploying from Marketplace](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Deploying-from-Marketplace) |
-| [Connexion SSH](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/SSH-Connection-fr) | Se connecter à la VM avec une clé SSH | [SSH Connection](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/SSH-Connection) |
-| [Vérification post-déploiement](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Post-Deployment-Verification-fr) | Vérifier les services et accéder à VIVO | [Post-Deployment Verification](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Post-Deployment-Verification) |
-| [Certificat HTTPS / TLS](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/HTTPS-TLS-Certificate-fr) | Provisionnement Let's Encrypt, renouvellement et certificats personnalisés | [HTTPS / TLS Certificate](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/HTTPS-TLS-Certificate) |
-| [Configuration de VIVO](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Configuring-VIVO-fr) | Espace de noms, identifiants et paramètres i18n | [Configuring VIVO](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Configuring-VIVO) |
-| [Chargement des données d'exemple](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Loading-Sample-Data-fr) | Charger les données d'exemple pour explorer VIVO (avec et sans i18n) | [Loading Sample Data](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Loading-Sample-Data) |
-| [Explorer VIVO](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Exploring-VIVO-fr) | Naviguer dans l'interface, recherche, profils, administration du site | [Exploring VIVO](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Exploring-VIVO) |
-| [Dépannage](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Troubleshooting-fr) | Problèmes courants de déploiement et d'exécution | [Troubleshooting](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Troubleshooting) |
-| [Support](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Support-fr) | Canaux de support de l'éditeur et de la communauté, coordonnées | [Support](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Support) |
+| [Déployer depuis le Marketplace](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/fr_Deploying-from-Marketplace) | Déployer VIVO depuis Azure Marketplace | [Deploying from Marketplace](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Deploying-from-Marketplace) |
+| [Connexion SSH](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/fr_SSH-Connection) | Se connecter à la VM avec une clé SSH | [SSH Connection](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/SSH-Connection) |
+| [Vérification post-déploiement](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/fr_Post-Deployment-Verification) | Vérifier les services et accéder à VIVO | [Post-Deployment Verification](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Post-Deployment-Verification) |
+| [Certificat HTTPS / TLS](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/fr_HTTPS-TLS-Certificate) | Provisionnement Let's Encrypt, renouvellement et certificats personnalisés | [HTTPS / TLS Certificate](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/HTTPS-TLS-Certificate) |
+| [Configuration de VIVO](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/fr_Configuring-VIVO) | Espace de noms, identifiants et paramètres i18n | [Configuring VIVO](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Configuring-VIVO) |
+| [Chargement des données d'exemple](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/fr_Loading-Sample-Data) | Charger les données d'exemple pour explorer VIVO (avec et sans i18n) | [Loading Sample Data](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Loading-Sample-Data) |
+| [Explorer VIVO](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/fr_Exploring-VIVO) | Naviguer dans l'interface, recherche, profils, administration du site | [Exploring VIVO](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Exploring-VIVO) |
+| [Dépannage](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/fr_Troubleshooting) | Problèmes courants de déploiement et d'exécution | [Troubleshooting](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Troubleshooting) |
+| [Support](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/fr_Support) | Canaux de support de l'éditeur et de la communauté, coordonnées | [Support](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Support) |
 
 ---
 
