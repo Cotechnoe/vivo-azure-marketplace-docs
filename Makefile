@@ -1,11 +1,11 @@
 # ================================================================
 # Makefile — VIVO Marketplace VM diagnostic orchestration
+# (ADR-602 : Makefile comme orchestrateur de scripts)
 #
 # Usage:
 #   make diag    IP=<VM_IP>
 #   make diag    IP=<VM_IP> SSH_USER=azureuser SSH_KEY=~/.ssh/my_key
-#   make set-dns IP=<VM_IP>
-#   make set-dns IP=<VM_IP> DNS=<label>
+#   make set-dns IP=<VM_IP> [DNS=<label>]
 #   make certbot IP=<VM_IP> FQDN=<fqdn> EMAIL=<email>
 #   make help
 # ================================================================
@@ -16,52 +16,34 @@ SSH_USER    ?= azureuser
 SSH_KEY     ?=
 DNS         ?=
 
-help: ## Show available targets
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
-		awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2}'
+# Couleurs
+BLUE   := \033[0;34m
+GREEN  := \033[0;32m
+YELLOW := \033[1;33m
+NC     := \033[0m
 
-diag: ## Run full VM installation diagnostic — make diag IP=<vm_ip>
+##@ Aide
+
+help: ## Afficher cette aide
+	@echo "$(BLUE)══════════════════════════════════════════════════$(NC)"
+	@echo "$(GREEN)  VIVO Marketplace — Outils diagnostic VM         $(NC)"
+	@echo "$(BLUE)══════════════════════════════════════════════════$(NC)"
+	@awk 'BEGIN {FS = ":.*##"} /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0,5) } /^[a-zA-Z_-]+:.*?##/ { printf "  $(GREEN)%-20s$(NC) %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+
+##@ Diagnostic
+
+diag: ## Diagnostic complet d'installation VM — make diag IP=<vm_ip>
 	@[ -n "$(IP)" ] || (echo "Usage: make diag IP=<vm_ip>"; exit 1)
-	@bash $(SCRIPTS_DIR)/vivo-diag.sh $(IP) $(SSH_USER) $(SSH_KEY)
+	@bash $(SCRIPTS_DIR)/vivo-diag.sh "$(IP)" "$(SSH_USER)" "$(SSH_KEY)"
 
-set-dns: ## Assign DNS label to a VM's public IP — make set-dns IP=<vm_ip> [DNS=<label>]
+##@ DNS & TLS
+
+set-dns: ## Assigner un label DNS à l'IP publique d'une VM — make set-dns IP=<vm_ip> [DNS=<label>]
 	@[ -n "$(IP)" ] || (echo "Usage: make set-dns IP=<vm_ip> [DNS=<label>]"; exit 1)
-	@set -e; \
-	 PIP_JSON=$$(az network public-ip list \
-	   --query "[?ipAddress=='$(IP)'].{name:name,rg:resourceGroup}" -o json); \
-	 PIP_NAME=$$(echo "$$PIP_JSON" | python3 -c \
-	   "import sys,json; d=json.load(sys.stdin); print(d[0]['name'])" 2>/dev/null); \
-	 PIP_RG=$$(echo "$$PIP_JSON" | python3 -c \
-	   "import sys,json; d=json.load(sys.stdin); print(d[0]['rg'])" 2>/dev/null); \
-	 [ -n "$$PIP_NAME" ] || { echo "ERROR: aucune IP publique trouvée pour $(IP)"; exit 1; }; \
-	 DNS_LABEL="$(DNS)"; \
-	 [ -z "$$DNS_LABEL" ] && DNS_LABEL="vivo-$$(echo '$(IP)' | tr '.' '-')"; \
-	 echo "IP publique : $$PIP_NAME  [$$PIP_RG]"; \
-	 echo "Label DNS   : $$DNS_LABEL"; \
-	 az network public-ip update \
-	   --resource-group "$$PIP_RG" \
-	   --name "$$PIP_NAME" \
-	   --dns-name "$$DNS_LABEL" --output none; \
-	 FQDN=$$(az network public-ip show \
-	   --resource-group "$$PIP_RG" --name "$$PIP_NAME" \
-	   --query "dnsSettings.fqdn" -o tsv); \
-	 echo "FQDN        : $$FQDN"
-certbot: ## Obtain/renew Let's Encrypt cert on a VM — make certbot IP=<ip> FQDN=<fqdn> EMAIL=<email>
+	@bash $(SCRIPTS_DIR)/set-dns.sh "$(IP)" "$(DNS)"
+
+certbot: ## Obtenir/renouveler un certificat Let's Encrypt — make certbot IP=<ip> FQDN=<fqdn> EMAIL=<email>
 	@[ -n "$(IP)"    ] || (echo "Usage: make certbot IP=<ip> FQDN=<fqdn> EMAIL=<email>"; exit 1)
 	@[ -n "$(FQDN)"  ] || (echo "Usage: make certbot IP=<ip> FQDN=<fqdn> EMAIL=<email>"; exit 1)
 	@[ -n "$(EMAIL)" ] || (echo "Usage: make certbot IP=<ip> FQDN=<fqdn> EMAIL=<email>"; exit 1)
-	@SSH_OPTS="-o StrictHostKeyChecking=no -o ConnectTimeout=15"; \
-	 [ -n "$(SSH_KEY)" ] && SSH_OPTS="$$SSH_OPTS -i $(SSH_KEY)"; \
-	 echo "[certbot] Demande certificat Let's Encrypt pour $(FQDN) sur $(IP)..."; \
-	 ssh $$SSH_OPTS $(SSH_USER)@$(IP) \
-	   "sudo certbot --nginx \
-	     -d '$(FQDN)' \
-	     --non-interactive \
-	     --agree-tos \
-	     --email '$(EMAIL)' \
-	     --redirect \
-	     --no-eff-email \
-	   && sudo systemctl enable certbot.timer 2>/dev/null \
-	   && echo '[certbot] Renouvellement automatique activé ✓' \
-	   || echo '[certbot] WARN: certbot.timer absent — cron /etc/cron.d/certbot utilisé'"
-	@echo "[certbot] Certificat Let's Encrypt actif pour $(FQDN) ✓"
+	@bash $(SCRIPTS_DIR)/certbot.sh "$(IP)" "$(FQDN)" "$(EMAIL)" "$(SSH_USER)" "$(SSH_KEY)"
