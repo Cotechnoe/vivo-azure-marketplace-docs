@@ -2,6 +2,12 @@
 # =============================================================================
 # certbot.sh — Obtain/renew a Let's Encrypt certificate on a VM via SSH
 #
+# Issues a TLS certificate via Certbot for the VIVO web interface served by
+# Nginx. The VM must have a resolvable FQDN before running this script
+# (see set-dns.sh).
+#
+# See: https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/HTTPS-TLS-Certificate
+#
 # Usage: certbot.sh <ip> <fqdn> <email> [ssh_user] [ssh_key]
 #
 #   <ip>        VM public IP address

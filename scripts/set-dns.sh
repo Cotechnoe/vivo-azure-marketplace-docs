@@ -2,6 +2,11 @@
 # =============================================================================
 # set-dns.sh — Assign a DNS label to an Azure VM's public IP
 #
+# Assigns a custom DNS label to the Azure Public IP resource associated with
+# the VM, generating the FQDN required for TLS certificate provisioning.
+#
+# See: https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/HTTPS-TLS-Certificate
+#
 # Usage: set-dns.sh <ip> [dns_label]
 #
 #   <ip>         VM public IP address

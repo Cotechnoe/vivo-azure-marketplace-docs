@@ -1,6 +1,12 @@
 # ================================================================
-# Makefile — VIVO Marketplace VM diagnostic orchestration
-# (ADR-602: Makefile as script orchestrator)
+# Makefile — VIVO Marketplace VM post-deployment toolkit
+#
+# Helper commands for operating a VIVO VM deployed from the
+# Azure Marketplace: diagnostics, DNS configuration, and TLS
+# certificate provisioning.
+#
+# Documentation:
+#   https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki
 #
 # Usage:
 #   make diag    IP=<VM_IP>
