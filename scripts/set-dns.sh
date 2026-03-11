@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # =============================================================================
-# set-dns.sh — Assigner un label DNS à l'IP publique Azure d'une VM
+# set-dns.sh — Assign a DNS label to an Azure VM's public IP
 #
-# Usage : set-dns.sh <ip> [dns_label]
+# Usage: set-dns.sh <ip> [dns_label]
 #
-#   <ip>         Adresse IP publique de la VM
-#   [dns_label]  Label DNS souhaité (défaut: vivo-<ip-avec-tirets>)
+#   <ip>         VM public IP address
+#   [dns_label]  Desired DNS label (default: vivo-<ip-with-dashes>)
 # =============================================================================
 set -euo pipefail
 
@@ -20,12 +20,12 @@ PIP_NAME=$(echo "${PIP_JSON}" | python3 -c \
 PIP_RG=$(echo "${PIP_JSON}" | python3 -c \
   "import sys,json; d=json.load(sys.stdin); print(d[0]['rg'])" 2>/dev/null) || true
 
-[ -n "${PIP_NAME}" ] || { echo "ERROR: aucune IP publique trouvée pour ${IP}"; exit 1; }
+[ -n "${PIP_NAME}" ] || { echo "ERROR: no public IP found for ${IP}"; exit 1; }
 
 [ -z "${DNS_LABEL}" ] && DNS_LABEL="vivo-$(echo "${IP}" | tr '.' '-')"
 
-echo "IP publique : ${PIP_NAME}  [${PIP_RG}]"
-echo "Label DNS   : ${DNS_LABEL}"
+echo "Public IP   : ${PIP_NAME}  [${PIP_RG}]"
+echo "DNS label   : ${DNS_LABEL}"
 
 az network public-ip update \
   --resource-group "${PIP_RG}" \

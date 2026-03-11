@@ -1,6 +1,6 @@
 # ================================================================
 # Makefile — VIVO Marketplace VM diagnostic orchestration
-# (ADR-602 : Makefile comme orchestrateur de scripts)
+# (ADR-602: Makefile as script orchestrator)
 #
 # Usage:
 #   make diag    IP=<VM_IP>
@@ -16,33 +16,33 @@ SSH_USER    ?= azureuser
 SSH_KEY     ?=
 DNS         ?=
 
-# Couleurs
+# Colors
 BLUE   := \033[0;34m
 GREEN  := \033[0;32m
 YELLOW := \033[1;33m
 NC     := \033[0m
 
-##@ Aide
+##@ Help
 
-help: ## Afficher cette aide
+help: ## Show this help
 	@echo "$(BLUE)══════════════════════════════════════════════════$(NC)"
-	@echo "$(GREEN)  VIVO Marketplace — Outils diagnostic VM         $(NC)"
+	@echo "$(GREEN)  VIVO Marketplace — VM diagnostic tools          $(NC)"
 	@echo "$(BLUE)══════════════════════════════════════════════════$(NC)"
 	@awk 'BEGIN {FS = ":.*##"} /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0,5) } /^[a-zA-Z_-]+:.*?##/ { printf "  $(GREEN)%-20s$(NC) %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
 ##@ Diagnostic
 
-diag: ## Diagnostic complet d'installation VM — make diag IP=<vm_ip>
+diag: ## Full VM installation diagnostic — make diag IP=<vm_ip>
 	@[ -n "$(IP)" ] || (echo "Usage: make diag IP=<vm_ip>"; exit 1)
 	@bash $(SCRIPTS_DIR)/vivo-diag.sh "$(IP)" "$(SSH_USER)" "$(SSH_KEY)"
 
 ##@ DNS & TLS
 
-set-dns: ## Assigner un label DNS à l'IP publique d'une VM — make set-dns IP=<vm_ip> [DNS=<label>]
+set-dns: ## Assign a DNS label to a VM's public IP — make set-dns IP=<vm_ip> [DNS=<label>]
 	@[ -n "$(IP)" ] || (echo "Usage: make set-dns IP=<vm_ip> [DNS=<label>]"; exit 1)
 	@bash $(SCRIPTS_DIR)/set-dns.sh "$(IP)" "$(DNS)"
 
-certbot: ## Obtenir/renouveler un certificat Let's Encrypt — make certbot IP=<ip> FQDN=<fqdn> EMAIL=<email>
+certbot: ## Obtain/renew a Let's Encrypt certificate — make certbot IP=<ip> FQDN=<fqdn> EMAIL=<email>
 	@[ -n "$(IP)"    ] || (echo "Usage: make certbot IP=<ip> FQDN=<fqdn> EMAIL=<email>"; exit 1)
 	@[ -n "$(FQDN)"  ] || (echo "Usage: make certbot IP=<ip> FQDN=<fqdn> EMAIL=<email>"; exit 1)
 	@[ -n "$(EMAIL)" ] || (echo "Usage: make certbot IP=<ip> FQDN=<fqdn> EMAIL=<email>"; exit 1)

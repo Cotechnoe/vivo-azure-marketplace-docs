@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
 # =============================================================================
-# certbot.sh — Obtenir/renouveler un certificat Let's Encrypt via SSH sur une VM
+# certbot.sh — Obtain/renew a Let's Encrypt certificate on a VM via SSH
 #
-# Usage : certbot.sh <ip> <fqdn> <email> [ssh_user] [ssh_key]
+# Usage: certbot.sh <ip> <fqdn> <email> [ssh_user] [ssh_key]
 #
-#   <ip>        Adresse IP publique de la VM
-#   <fqdn>      Nom de domaine complet (ex: vivo-01.canadacentral.cloudapp.azure.com)
-#   <email>     Adresse e-mail pour les notifications Let's Encrypt
-#   [ssh_user]  Utilisateur SSH (défaut: azureuser)
-#   [ssh_key]   Chemin vers la clé privée SSH (optionnel)
+#   <ip>        VM public IP address
+#   <fqdn>      Fully qualified domain name (e.g. vivo-01.canadacentral.cloudapp.azure.com)
+#   <email>     Email address for Let's Encrypt notifications
+#   [ssh_user]  SSH user (default: azureuser)
+#   [ssh_key]   Path to SSH private key (optional)
 # =============================================================================
 set -euo pipefail
 
@@ -21,7 +21,7 @@ SSH_KEY="${5:-}"
 SSH_OPTS="-o StrictHostKeyChecking=no -o ConnectTimeout=15"
 [ -n "${SSH_KEY}" ] && SSH_OPTS="${SSH_OPTS} -i ${SSH_KEY}"
 
-echo "[certbot] Demande certificat Let's Encrypt pour ${FQDN} sur ${IP}..."
+echo "[certbot] Requesting Let's Encrypt certificate for ${FQDN} on ${IP}..."
 
 # shellcheck disable=SC2086
 ssh ${SSH_OPTS} "${SSH_USER}@${IP}" \
@@ -33,7 +33,7 @@ ssh ${SSH_OPTS} "${SSH_USER}@${IP}" \
     --redirect \
     --no-eff-email \
   && sudo systemctl enable certbot.timer 2>/dev/null \
-  && echo '[certbot] Renouvellement automatique activé ✓' \
-  || echo '[certbot] WARN: certbot.timer absent — cron /etc/cron.d/certbot utilisé'"
+  && echo '[certbot] Auto-renewal enabled ✓' \
+  || echo '[certbot] WARN: certbot.timer not found — using cron /etc/cron.d/certbot'"  
 
-echo "[certbot] Certificat Let's Encrypt actif pour ${FQDN} ✓"
+echo "[certbot] Let's Encrypt certificate active for ${FQDN} ✓"
