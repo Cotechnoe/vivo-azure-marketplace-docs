@@ -6,9 +6,10 @@
 #   make diag    IP=<VM_IP> SSH_USER=azureuser SSH_KEY=~/.ssh/my_key
 #   make set-dns IP=<VM_IP>
 #   make set-dns IP=<VM_IP> DNS=<label>
+#   make certbot IP=<VM_IP> FQDN=<fqdn> EMAIL=<email>
 #   make help
 # ================================================================
-.PHONY: help diag set-dns
+.PHONY: help diag set-dns certbot
 
 SCRIPTS_DIR := scripts
 SSH_USER    ?= azureuser
@@ -45,3 +46,22 @@ set-dns: ## Assign DNS label to a VM's public IP — make set-dns IP=<vm_ip> [DN
 	   --resource-group "$$PIP_RG" --name "$$PIP_NAME" \
 	   --query "dnsSettings.fqdn" -o tsv); \
 	 echo "FQDN        : $$FQDN"
+certbot: ## Obtain/renew Let's Encrypt cert on a VM — make certbot IP=<ip> FQDN=<fqdn> EMAIL=<email>
+	@[ -n "$(IP)"    ] || (echo "Usage: make certbot IP=<ip> FQDN=<fqdn> EMAIL=<email>"; exit 1)
+	@[ -n "$(FQDN)"  ] || (echo "Usage: make certbot IP=<ip> FQDN=<fqdn> EMAIL=<email>"; exit 1)
+	@[ -n "$(EMAIL)" ] || (echo "Usage: make certbot IP=<ip> FQDN=<fqdn> EMAIL=<email>"; exit 1)
+	@SSH_OPTS="-o StrictHostKeyChecking=no -o ConnectTimeout=15"; \
+	 [ -n "$(SSH_KEY)" ] && SSH_OPTS="$$SSH_OPTS -i $(SSH_KEY)"; \
+	 echo "[certbot] Demande certificat Let's Encrypt pour $(FQDN) sur $(IP)..."; \
+	 ssh $$SSH_OPTS $(SSH_USER)@$(IP) \
+	   "sudo certbot --nginx \
+	     -d '$(FQDN)' \
+	     --non-interactive \
+	     --agree-tos \
+	     --email '$(EMAIL)' \
+	     --redirect \
+	     --no-eff-email \
+	   && sudo systemctl enable certbot.timer 2>/dev/null \
+	   && echo '[certbot] Renouvellement automatique activé ✓' \
+	   || echo '[certbot] WARN: certbot.timer absent — cron /etc/cron.d/certbot utilisé'"
+	@echo "[certbot] Certificat Let's Encrypt actif pour $(FQDN) ✓"
