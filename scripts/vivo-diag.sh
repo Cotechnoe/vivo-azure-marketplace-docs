@@ -11,7 +11,7 @@
 #   2. first-boot completion marker
 #   3. /etc/vivo/install.conf content
 #   4. systemd service status (nginx, tomcat, solr)
-#   5. Disk usage on /mnt/data
+#   5. Disk usage on /data
 #   6. HTTP/HTTPS reachability (local curl from the VM)
 #   7. TLS certificate expiry (openssl)
 #   8. UFW firewall rules (ports 443/80/22/8983/8080)
@@ -129,6 +129,8 @@ else
     LAST_FB=$(remote "sudo tail -10 /var/log/vivo-first-boot.log 2>/dev/null || echo '(log absent)'" || true)
     if echo "${LAST_FB}" | grep -qi 'premier boot.*terminé\|first.boot.*done\|terminé.*✓'; then
         warn "First-boot marker /etc/vivo/.first-boot-done absent but log confirms completion"
+    elif echo "${CI_STATUS}" | grep -q "status: running"; then
+        warn "First-boot marker absent — cloud-init still running, boot in progress"
     else
         fail "First-boot marker /etc/vivo/.first-boot-done absent — boot may be incomplete"
     fi
@@ -163,27 +165,27 @@ for svc in nginx tomcat solr; do
 done
 
 # ────────────────────────────────────────────────────────────────
-# CHECK 5 — Disk usage (/mnt/data)
+# CHECK 5 — Disk usage (/data)
 # ────────────────────────────────────────────────────────────────
-section "5. Disk usage (/mnt/data)"
-DISK=$(remote "df -h /mnt/data 2>/dev/null | tail -1 || echo ABSENT")
+section "5. Disk usage (/data)"
+DISK=$(remote "df -h /data 2>/dev/null | tail -1 || echo ABSENT")
 if [[ "${DISK}" == "ABSENT" || -z "${DISK}" ]]; then
-    warn "/mnt/data not found — data disk may not be mounted or path differs"
+    warn "/data not found — data disk may not be mounted or path differs"
     # Fall back to root filesystem usage
     ROOT_DISK=$(remote "df -h / | tail -1")
     echo "    Root filesystem: ${ROOT_DISK}"
 else
     USED_PCT=$(echo "${DISK}" | awk '{print $5}' | tr -d '%')
     if [[ -z "${USED_PCT}" || ! "${USED_PCT}" =~ ^[0-9]+$ ]]; then
-        warn "Could not parse disk usage for /mnt/data: ${DISK}"
+        warn "Could not parse disk usage for /data: ${DISK}"
     else
         echo "    ${DISK}"
         if [[ "${USED_PCT}" -ge 90 ]]; then
-            fail "Disk /mnt/data is ${USED_PCT}% full — critical"
+            fail "Disk /data is ${USED_PCT}% full — critical"
         elif [[ "${USED_PCT}" -ge 75 ]]; then
-            warn "Disk /mnt/data is ${USED_PCT}% full — monitor closely"
+            warn "Disk /data is ${USED_PCT}% full — monitor closely"
         else
-            ok "Disk /mnt/data usage: ${USED_PCT}%"
+            ok "Disk /data usage: ${USED_PCT}%"
         fi
     fi
 fi
