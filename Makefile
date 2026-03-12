@@ -12,7 +12,7 @@
 #   make diag    IP=<VM_IP>
 #   make diag    IP=<VM_IP> SSH_USER=azureuser SSH_KEY=~/.ssh/my_key
 #   make set-dns IP=<VM_IP> [DNS=<label>]
-#   make certbot IP=<VM_IP> FQDN=<fqdn> EMAIL=<email>
+#   make certbot IP=<VM_IP> FQDN=<fqdn> EMAIL=<email> SSH_KEY=~/.ssh/my_key
 #   make help
 # ================================================================
 .PHONY: help diag set-dns certbot
@@ -48,8 +48,8 @@ set-dns: ## Assign a DNS label to a VM's public IP — make set-dns IP=<vm_ip> [
 	@[ -n "$(IP)" ] || (echo "Usage: make set-dns IP=<vm_ip> [DNS=<label>]"; exit 1)
 	@bash $(SCRIPTS_DIR)/set-dns.sh "$(IP)" "$(DNS)"
 
-certbot: ## Obtain/renew a Let's Encrypt certificate — make certbot IP=<ip> FQDN=<fqdn> EMAIL=<email>
-	@[ -n "$(IP)"    ] || (echo "Usage: make certbot IP=<ip> FQDN=<fqdn> EMAIL=<email>"; exit 1)
-	@[ -n "$(FQDN)"  ] || (echo "Usage: make certbot IP=<ip> FQDN=<fqdn> EMAIL=<email>"; exit 1)
-	@[ -n "$(EMAIL)" ] || (echo "Usage: make certbot IP=<ip> FQDN=<fqdn> EMAIL=<email>"; exit 1)
+certbot: ## Obtain/renew Let's Encrypt cert — make certbot IP=<ip> FQDN=<fqdn> EMAIL=<email> SSH_KEY=<key>
+	@[ -n "$(IP)"    ] || (echo "Usage: make certbot IP=<ip> FQDN=<fqdn> EMAIL=<email> SSH_KEY=<key>"; exit 1)
+	@[ -n "$(FQDN)"  ] || (echo "Usage: make certbot IP=<ip> FQDN=<fqdn> EMAIL=<email> SSH_KEY=<key>"; exit 1)
+	@[ -n "$(EMAIL)" ] || (echo "Usage: make certbot IP=<ip> FQDN=<fqdn> EMAIL=<email> SSH_KEY=<key>"; exit 1)
 	@bash $(SCRIPTS_DIR)/certbot.sh "$(IP)" "$(FQDN)" "$(EMAIL)" "$(SSH_USER)" "$(SSH_KEY)"
