@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # =============================================================================
-# set-dns.sh — Assign a DNS label to an Azure VM's public IP
+# set-dns.sh — Assign a DNS label to an Azure VM's public IP (v1.1.6)
+#
+# Copyright (c) 2026 Cotechnoe inc.
 #
 # Assigns a custom DNS label to the Azure Public IP resource associated with
 # the VM, generating the FQDN required for TLS certificate provisioning.

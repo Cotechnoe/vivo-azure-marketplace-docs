@@ -1,5 +1,7 @@
 # ================================================================
-# Makefile — VIVO Marketplace VM post-deployment toolkit
+# Makefile — VIVO Marketplace VM post-deployment toolkit (v1.1.6)
+#
+# Copyright (c) 2026 Cotechnoe inc.
 #
 # Helper commands for operating a VIVO VM deployed from the
 # Azure Marketplace: diagnostics, DNS configuration, and TLS

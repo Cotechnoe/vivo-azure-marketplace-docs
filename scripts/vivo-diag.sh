@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # ================================================================
-# vivo-diag.sh — Remote diagnostic script for a deployed VIVO VM
+# vivo-diag.sh — Remote diagnostic script for a deployed VIVO VM (v1.1.6)
+#
+# Copyright (c) 2026 Cotechnoe inc.
 #
 # Usage:
 #   ./vivo-diag.sh <VM_IP> [SSH_USER] [SSH_KEY]
@@ -127,7 +129,8 @@ if [[ "${FB_MARKER}" != "ABSENT" ]]; then
 else
     # Marker absent — check if the log confirms completion anyway
     LAST_FB=$(remote "sudo tail -10 /var/log/vivo-first-boot.log 2>/dev/null || echo '(log absent)'" || true)
-    if echo "${LAST_FB}" | grep -qi 'premier boot.*terminé\|first.boot.*done\|terminé.*✓'; then
+    # Match English or French (legacy) completion messages
+    if echo "${LAST_FB}" | grep -Eqi 'first.boot.*(done|completed)|(premier boot|boot).*terminé|✓\s*$'; then
         warn "First-boot marker /etc/vivo/.first-boot-done absent but log confirms completion"
     elif echo "${CI_STATUS}" | grep -q "status: running"; then
         warn "First-boot marker absent — cloud-init still running, boot in progress"

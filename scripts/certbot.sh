@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # =============================================================================
-# certbot.sh — Obtain/renew a Let's Encrypt certificate on a VM via SSH
+# certbot.sh — Obtain/renew a Let's Encrypt certificate on a VM via SSH (v1.1.6)
+#
+# Copyright (c) 2026 Cotechnoe inc.
 #
 # Issues a TLS certificate via Certbot for the VIVO web interface served by
 # Nginx. The VM must have a resolvable FQDN before running this script
