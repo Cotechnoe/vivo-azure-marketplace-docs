@@ -21,9 +21,9 @@ Cette offre Azure Marketplace déploie une instance VIVO entièrement configuré
 - Le provisionnement de la VM (Ubuntu, Standard D2s v3 ou supérieur)
 - L'installation de la pile VIVO + Apache Solr + Tomcat + Nginx
 - La configuration spécifique à l'institution (espace de noms, identifiants admin, paramètres de langue)
-- La terminaison TLS via Nginx avec un certificat Let's Encrypt provisionné automatiquement
+- La terminaison TLS via Nginx avec une tentative de provisionnement du certificat Let's Encrypt au premier démarrage
 
-Après le déploiement, VIVO est immédiatement accessible à l'adresse `https://<ip-publique>/`.
+Après le déploiement, VIVO est accessible à l'adresse `https://<fqdn-azure>/`. Utilisez le FQDN Azure retourné par le déploiement, car le certificat TLS est émis pour ce nom.
 
 ---
 
