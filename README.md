@@ -35,6 +35,7 @@ Full deployment and administration documentation is available in the **[project 
 
 | Page | Description | Français |
 |------|-------------|----------|
+| [Quick Start Evaluation](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Quick-Start-Evaluation) | Deploy a temporary test environment to evaluate the Marketplace offer | [Évaluation rapide](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/fr_Quick-Start-Evaluation) |
 | [Deploying from Marketplace](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Deploying-from-Marketplace) | Deploy VIVO from Azure Marketplace | [Déployer depuis le Marketplace](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/fr_Deploying-from-Marketplace) |
 | [SSH Connection](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/SSH-Connection) | Connecting to your VM with an SSH key | [Connexion SSH](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/fr_SSH-Connection) |
 | [Post-Deployment Verification](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Post-Deployment-Verification) | Verifying services and accessing VIVO | [Vérification post-déploiement](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/fr_Post-Deployment-Verification) |
