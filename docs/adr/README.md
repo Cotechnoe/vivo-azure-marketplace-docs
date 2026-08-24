@@ -120,16 +120,24 @@ git commit -m "docs(adr): ADR-201 [INFRA] Nouvelle décision"
 
 ---
 
+### 📚 DOC — Documentation (900-999)
+
+| ADR | Titre | Statut | Date | Domaine |
+|-----|-------|--------|------|---------|
+| [900](./900-DOC-ajout-documents-wiki.md) | Gouvernance de l'ajout de documents dans le Wiki | 🔄 Proposé | 2026-08-24 | Documentation |
+
+---
+
 ## 📊 Statistiques
 
 | Indicateur | Valeur |
 |-----------|--------|
-| **Total ADRs** | 18 |
+| **Total ADRs** | 19 |
 | **Acceptés** | 16 |
 | **Supersédés** | 1 |
-| **Proposés** | 0 |
+| **Proposés** | 1 |
 | **Brouillons** | 0 |
-| **Par Domaine** | META: 3, ARCH: 1, INFRA: 1, SEC: 1, DEVOPS: 8, TEST: 1, BIZ: 3 |
+| **Par Domaine** | META: 3, ARCH: 1, INFRA: 1, SEC: 1, DEVOPS: 8, TEST: 1, BIZ: 3, DOC: 1 |
 
 ---
 
@@ -146,6 +154,7 @@ git commit -m "docs(adr): ADR-201 [INFRA] Nouvelle décision"
 | `DEVOPS` | 600-699 | CI/CD, scripts provisioning | 608 |
 | `TEST` | 700-799 | Validation Marketplace, smoke tests | 701 |
 | `BIZ` | 800-899 | Offre Marketplace, licensing | 803 |
+| `DOC` | 900-999 | Documentation | 901 |
 
 ---
 
