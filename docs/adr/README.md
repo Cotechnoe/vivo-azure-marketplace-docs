@@ -124,7 +124,7 @@ git commit -m "docs(adr): ADR-201 [INFRA] Nouvelle décision"
 
 | ADR | Titre | Statut | Date | Domaine |
 |-----|-------|--------|------|---------|
-| [900](./900-DOC-guide-evaluation-rapide-wiki.md) | Guide d'evaluation rapide dans le Wiki | 🔄 Proposé | 2026-08-24 | Documentation |
+| [900](./900-DOC-ajout-documents-wiki.md) | Gouvernance de l'ajout de documents dans le Wiki | 🔄 Proposé | 2026-08-24 | Documentation |
 
 ---
 
