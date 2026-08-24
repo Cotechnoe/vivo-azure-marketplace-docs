@@ -21,9 +21,9 @@ This Azure Marketplace offer deploys a fully configured VIVO instance on a dedic
 - VM provisioning (Ubuntu, Standard D2s v3 or larger)
 - VIVO + Apache Solr + Tomcat + Nginx stack installation
 - Institution-specific configuration (namespace, admin credentials, language settings)
-- TLS termination via Nginx with an automatically provisioned Let's Encrypt certificate
+- TLS termination via Nginx with an attempted Let's Encrypt certificate provisioning at first boot
 
-After deployment, VIVO is immediately accessible at `https://<public-ip>/`.
+After deployment, VIVO is accessible at `https://<azure-fqdn>/`. Use the Azure FQDN returned by the deployment because the TLS certificate is issued for that name.
 
 ---
 
