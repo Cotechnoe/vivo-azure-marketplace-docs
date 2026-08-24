@@ -53,7 +53,7 @@ Tout nouveau document utilisateur ajouté au Wiki suit les règles suivantes.
 1. **Cadrage et traçabilité** : créer une issue conformément à [ADR-003](./003-META-creation-et-usage-des-github-issues.md), décrivant le besoin, le public visé, les sources de vérité et les critères d'acceptation. L'issue référence ADR-900.
 2. **Emplacement** : vérifier qu'une page existante ne couvre pas déjà le besoin. Créer une page distincte seulement si elle correspond à un parcours, une tâche ou un public clairement différencié.
 3. **Bilinguisme** : toute page destinée aux utilisateurs est créée en paire `Nom-de-page.md` et `fr_Nom-de-page.md`. Chaque page commence par son titre, un lien standardisé vers l'autre langue, une introduction et un séparateur `---`.
-4. **Navigation** : inscrire la page dans `Home.md`, `fr_Home.md` et `_Sidebar.md` lorsqu'elle fait partie d'un parcours utilisateur. Mettre à jour les tableaux de langues lorsque ces accueils les exposent.
+4. **Navigation** : inscrire la page dans `Home.md`, `fr_Home.md` et `_Sidebar.md` lorsqu'elle fait partie d'un parcours utilisateur. Mettre à jour les tableaux de langues lorsque ces accueils les exposent. Lorsqu'un guide doit être accessible depuis le dépôt, ajouter ses liens bilingues à `README.md` et `README-fr.md`.
 5. **Contenu factuel** : appuyer les instructions sur l'implémentation locale, l'offre Marketplace publiée ou la documentation officielle. Ne pas dupliquer une procédure concurrente ni présenter une hypothèse comme un comportement garanti.
 6. **Validation** : vérifier les liens internes, la parité fonctionnelle des langues, l'absence de références obsolètes et exécuter `git diff --check` avant livraison.
 
@@ -102,7 +102,7 @@ Rejetée : la charge de gouvernance serait disproportionnée pour une modificati
 |-------|--------|------------|
 | 1 | Créer l'issue de documentation et citer ADR-900 | Besoin, public, sources et critères d'acceptation présents |
 | 2 | Ajouter les pages et les liens de langue | Paire de fichiers et bandeaux bilingues présents |
-| 3 | Mettre à jour la navigation nécessaire | Les deux accueils et la barre latérale restent cohérents |
+| 3 | Mettre à jour la navigation nécessaire | Les deux accueils, la barre latérale et les README concernés restent cohérents |
 | 4 | Valider le diff | Liens vérifiés et `git diff --check` réussi |
 
 ## 🎯 Critères de Succès & Validation
@@ -110,6 +110,7 @@ Rejetée : la charge de gouvernance serait disproportionnée pour une modificati
 - Tout nouveau document utilisateur possède une issue qui référence ADR-900.
 - Les pages bilingues ont le même suffixe, des liens réciproques et une parité fonctionnelle.
 - Les pages accessibles aux utilisateurs sont visibles depuis la navigation appropriée.
+- Les nouveaux guides accessibles depuis le dépôt sont référencés dans `README.md` et `README-fr.md`.
 - Les affirmations opérationnelles sont reliées à des sources vérifiables.
 - La validation Markdown ne signale aucune erreur d'espacement.
 
