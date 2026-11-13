@@ -50,7 +50,7 @@ set-dns: ## Assign a DNS label to a VM's public IP — make set-dns IP=<vm_ip> [
 	@[ -n "$(IP)" ] || (echo "Usage: make set-dns IP=<vm_ip> [DNS=<label>]"; exit 1)
 	@bash $(SCRIPTS_DIR)/set-dns.sh "$(IP)" "$(DNS)"
 
-certbot: ## Obtain/renew Let's Encrypt cert — make certbot IP=<ip> FQDN=<fqdn> EMAIL=<email> SSH_KEY=<key>
+certbot: ## Request/renew and verify Let's Encrypt cert — make certbot IP=<ip> FQDN=<fqdn> EMAIL=<email> SSH_KEY=<key>
 	@[ -n "$(IP)"    ] || (echo "Usage: make certbot IP=<ip> FQDN=<fqdn> EMAIL=<email> SSH_KEY=<key>"; exit 1)
 	@[ -n "$(FQDN)"  ] || (echo "Usage: make certbot IP=<ip> FQDN=<fqdn> EMAIL=<email> SSH_KEY=<key>"; exit 1)
 	@[ -n "$(EMAIL)" ] || (echo "Usage: make certbot IP=<ip> FQDN=<fqdn> EMAIL=<email> SSH_KEY=<key>"; exit 1)

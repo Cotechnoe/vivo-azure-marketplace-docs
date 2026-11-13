@@ -88,7 +88,7 @@ chmod 600 "${SSH_KEY}"
 # ── SSH wrapper: run a command block on the remote VM ────────────
 remote() {
     ssh -i "${SSH_KEY}" \
-        -o StrictHostKeyChecking=no \
+        -o StrictHostKeyChecking=accept-new \
         -o ConnectTimeout=10 \
         -o BatchMode=yes \
         "${SSH_USER}@${VM_IP}" "$@" 2>/dev/null
