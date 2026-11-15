@@ -1,0 +1,2 @@
+# Unified patches prefix unchanged blank lines with a significant space.
+docs/wiki-review/1.2.0/wiki.patch whitespace=-blank-at-eol

@@ -1,0 +1,2369 @@
+diff --git a/Configuring-VIVO.md b/Configuring-VIVO.md
+index 6b68d1b332c5c90129e2bcbd44cd59792753cfa7..822bbaeb9dbd92f406302561226d4e3a78fbf405 100644
+--- a/Configuring-VIVO.md
++++ b/Configuring-VIVO.md
+@@ -2,125 +2,88 @@
+ 
+ > 🇫🇷 Cette page est également disponible en français : [[fr_Configuring-VIVO]]
+ 
+-In the reference ARM template, cloud-init writes `/etc/vivo/install.conf` and the first-boot script applies its settings to `runtime.properties`. The published offer's current wizard and image have not been independently checked against this template.
+-
+-For Marketplace deployments, use the fields offered by the wizard; do not replace a template-generated **Custom data** payload with a second one. For a direct deployment of the reference ARM template, supply its parameters to that template; it generates its own `customData`. Other ARM templates or images can behave differently. See [[Deploying-from-Marketplace]].
++Image **1.2.0** contains the application stack; institution-specific settings and ongoing operation remain administrative tasks. See [[Deploying-from-Marketplace]] for initial configuration and the distinction between Marketplace Custom data and direct ARM deployment.
+ 
+ ---
+ 
+-## Key configuration file
++## Initial settings and active configuration
+ 
+-```
+-/etc/vivo/install.conf
+-```
++At first boot, the image reads `/etc/vivo/install.conf`, initializes the data disk and applies namespace, administrator email, locales and Tomcat heap settings. It then creates `/etc/vivo/.first-boot-done`; subsequent runs skip initialization when that marker exists.
+ 
+-Example values from the reference template; actual contents depend on the deployed version:
+-```ini
+-VIVO_NAMESPACE=http://vivo.myuniversity.edu/individual/
+-VIVO_ADMIN_EMAIL=vivo_root@myuniversity.edu
+-VIVO_LANGUAGES=en_US
+-VIVO_LANGUAGE_FILTER=false
+-TOMCAT_HEAP_MIN=2g
+-TOMCAT_HEAP_MAX=6g
+-DATA_DISK_SIZE_GB=128
+-ADMIN_USERNAME=azureuser
+-```
++Changing `install.conf` after completion does **not** automatically apply changes. Do not remove the marker or rerun cloud-init to reconfigure an instance containing data. Inspect and edit the active files instead:
+ 
+----
++| File | Purpose |
++| --- | --- |
++| `/data/vivo/home/config/runtime.properties` | VIVO namespace, root-user settings and locales |
++| `/opt/tomcat/bin/setenv.sh` | Tomcat `CATALINA_OPTS`, including `-Xms` and `-Xmx` |
++| `/etc/nginx/conf.d/vivo.conf` | Image's NGINX site; inspect the active configuration because Certbot or an administrator can change it |
+ 
+-## runtime.properties location
++Before changing configuration, preserve a copy, arrange an appropriate maintenance window and have a recovery plan. For example:
+ 
+-VIVO's main configuration file is located in the VIVO home directory:
+-```
+-/data/vivo/home/config/runtime.properties
++```bash
++sudo cp -a /data/vivo/home/config/runtime.properties \
++  /data/vivo/home/config/runtime.properties.bak.$(date +%Y%m%d%H%M%S)
++sudoedit /data/vivo/home/config/runtime.properties
+ ```
+ 
+-> This is the `vivo_home_dir/config/runtime.properties` path referenced in the [official VIVO documentation](https://wiki.lyrasis.org/display/VIVODOC115x/Internationalization).
+-
+----
++This copies configuration only; it is not a backup of the running RDF stores or the whole instance.
+ 
+ ## Changing the VIVO namespace
+ 
+-The namespace is a permanent identifier for your institution's RDF entities.
+-**It should be set correctly before adding any data.**
++Choose the namespace **before loading data**. In `runtime.properties`, ensure one active entry, replacing the example with your institutional URI:
+ 
+-To update it:
+-```bash
+-sudo sed -i 's|^Vitro.defaultNamespace.*|Vitro.defaultNamespace = http://vivo.myuniversity.edu/individual/|' \
+-  /data/vivo/home/config/runtime.properties
+-sudo systemctl restart tomcat
++```properties
++Vitro.defaultNamespace = https://vivo.example.org/individual/
+ ```
+ 
+----
++A later edit does not rewrite existing RDF identifiers or migrate data. Plan any change on a populated instance separately, with tested recovery. Restart Tomcat after an approved configuration edit and verify the intended namespace on newly created test data.
+ 
+ ## VIVO administrator password
+ 
+-See [[Post-Deployment-Verification#first-vivo-administrator-login]] for the version-dependent first-login procedure. Confirm the instructions for your deployed image and change any initial or default password immediately. Do not rely on the SPARQL administration page as a password-reset procedure.
++See [[Post-Deployment-Verification#first-vivo-administrator-login]] for first login and the limits of the archived tests. The SSH account and VIVO web account are distinct. Do not use a public SPARQL page as a password-reset procedure.
+ 
+----
++Changing `rootUser.emailAddress` is not an account rename or a password reset. At startup, Vitro can create another root account if the configured email has no account. Review existing administrator accounts and restrict access before changing this setting; verify the resulting account and secure it before reopening access.
+ 
+ ## TLS Certificate (Let's Encrypt)
+ 
+-Let's Encrypt behavior depends on the image release and deployment path. When automatic provisioning is configured for the image, first boot attempts a certificate request for the deployment FQDN; issuance and completion time are not guaranteed. Follow [[Deploying-from-Marketplace]] for the supported way to configure the FQDN for your deployment.
+-
+-**Prerequisites:**
+-- The FQDN must resolve to the VM's public IP before the ACME HTTP-01 challenge.
+-- Port 80 must be reachable from the internet (the ARM template adds this NSG rule automatically).
+-- If the request fails, the image's fallback certificate may remain active. Verify the certificate served for the FQDN before entering credentials.
+-
+-> Check the renewal mechanism and its active state for the image version in use. See [[HTTPS-TLS-Certificate]] for verification and recovery steps.
+-
+----
++The image starts with a self-signed certificate. First boot attempts Certbot only if `VIVO_FQDN` is set and Certbot is available; issuing a trusted certificate still requires DNS and ACME validation. Editing that value after initialization does not request a certificate. Use [[HTTPS-TLS-Certificate]] for manual issuance, trust verification and renewal.
+ 
+ ## Internationalization (i18n)
+ 
+-VIVO supports two language modes, controlled by `VIVO_LANGUAGES` and `VIVO_LANGUAGE_FILTER` in `/etc/vivo/install.conf`.
+-
+-### Configuration parameters
+-
+-| Variable | Default | Description |
+-|----------|---------|-------------|
+-| `VIVO_LANGUAGES` | `en_US` | Comma-separated list of locale codes (e.g. `en_US,fr_CA`) |
+-| `VIVO_LANGUAGE_FILTER` | `false` | Filter RDF data to active locale only (`true` / `false`) |
++Initial settings `VIVO_LANGUAGES` and `VIVO_LANGUAGE_FILTER` are applied to `runtime.properties` at first boot. Thereafter edit the active properties directly. A locale selection does not translate institutional RDF data or install missing translations.
+ 
+-### Mode 1 — Single locale (one value in `VIVO_LANGUAGES`)
++### Mode 1 — Single locale
+ 
+-The UI is locked to the specified locale — no language selector is shown.
++In `runtime.properties`, ensure these are active exactly once; remove or comment out every active `languages.selectableLocales` entry:
+ 
+ ```properties
+-# /data/vivo/home/config/runtime.properties (set automatically on first boot)
+ languages.forceLocale = en_US
+ RDFService.languageFilter = false
+ ```
+ 
+-Use this mode when your instance serves a single-language audience.
++### Mode 2 — Multi-locale
+ 
+-### Mode 2 — Multi-locale (two or more values in `VIVO_LANGUAGES`)
+-
+-A language selector appears in the VIVO interface. The first locale in the list is the default.
++Ensure these are active exactly once; remove or comment out every active `languages.forceLocale` entry:
+ 
+ ```properties
+-# /data/vivo/home/config/runtime.properties (set automatically on first boot)
+ languages.selectableLocales = en_US, fr_CA
+ RDFService.languageFilter = true
+ ```
+ 
+-Use this mode when your RDF data contains `rdfs:label` values in multiple languages and you want users to switch between them.
++The first listed locale is the default. The language selector and translated interface depend on the corresponding resources being present. The filter is a separate choice; keep it `false` unless you intend language-aware selection of your RDF values.
+ 
+ ### RDF language filter (`RDFService.languageFilter`)
+ 
+-When enabled (`true`), VIVO filters RDF triples to display only values matching the user's active locale. If no exact match is found, VIVO falls back to the closest matching language tag.
+-
+-Set it to `false` if your data is not consistently tagged with language literals — untagged strings will always be shown regardless of locale.
++With `true`, Vitro selects literal values using language preferences and fallback rules. It does **not** simply hide all untagged values, nor guarantee that every untagged value is always displayed: selection also depends on alternative values for the same subject/property. See the [filter implementation in the packaged Vitro revision](https://github.com/vivo-project/Vitro/blob/c6fdb5091b9026f57901c97cfec88223a63cff47/api/src/main/java/edu/cornell/mannlib/vitro/webapp/rdfservice/filter/LanguageFilterModel.java).
+ 
+-> **Note:** Locale codes use an **underscore** in `runtime.properties` (`fr_CA`) but a **hyphen** in RDF data files (`@fr-CA`). This is standard Java i18n behaviour.
++Locale codes use underscores in settings (`fr_CA`) and RDF language tags use hyphens (`@fr-CA`). Verify representative tagged and untagged data in each selected locale before enabling filtering for institutional data.
+ 
+ ### Supported locales
+ 
+-This Marketplace image ships with language packs for:
++The following codes identify the corresponding languages when their translation resources are installed. This table does not certify completeness or availability of every translation in image 1.2.0:
+ 
+ | Locale code | Language |
+-|-------------|----------|
++| --- | --- |
+ | `en_US` | English (United States) |
+ | `en_CA` | English (Canada) |
+ | `fr_CA` | French (Canada) |
+@@ -130,39 +93,26 @@ This Marketplace image ships with language packs for:
+ | `ru_RU` | Russian |
+ | `sr_Latn_RS` | Serbian (Latin, Serbia) |
+ 
+-> Source: [vivo-project/VIVO-languages](https://github.com/vivo-project/VIVO-languages) and [vivo-project/Vitro i18n](https://github.com/vivo-project/Vitro/tree/main/webapp/src/main/webapp/i18n).
++### Apply and check language settings
+ 
+-For other locales, see [Creating new language files](https://wiki.lyrasis.org/display/VIVODOC115x/Internationalization) in the official VIVO documentation.
++Use the editor procedure above to add missing properties or replace existing entries, including commented entries with spaces. Avoid duplicate active keys; `languages.forceLocale` overrides selectable locales. Then restart Tomcat during the planned maintenance window:
+ 
+-### Changing language settings after deployment
+-
+-Edit `runtime.properties` directly on the VM:
+-
+-**Switch to single locale:**
+ ```bash
+-sudo sed -i \
+-  -e 's|^languages\.selectableLocales|#languages.selectableLocales|' \
+-  -e 's|^#\?languages\.forceLocale.*|languages.forceLocale = en_US|' \
+-  -e 's|^RDFService\.languageFilter.*|RDFService.languageFilter = false|' \
+-  /data/vivo/home/config/runtime.properties
+ sudo systemctl restart tomcat
+-```
+-
+-**Switch to multi-locale:**
+-```bash
+-sudo sed -i \
+-  -e 's|^languages\.forceLocale|#languages.forceLocale|' \
+-  -e 's|^#\?languages\.selectableLocales.*|languages.selectableLocales = en_US, fr_CA|' \
+-  -e 's|^RDFService\.languageFilter.*|RDFService.languageFilter = true|' \
++systemctl is-active tomcat
++grep -E '^[[:space:]]*(languages\.(forceLocale|selectableLocales)|RDFService\.languageFilter)[[:space:]]*=' \
+   /data/vivo/home/config/runtime.properties
+-sudo systemctl restart tomcat
+ ```
+ 
+-**Verify current i18n settings:**
+-```bash
+-grep -E "languageFilter|forceLocale|selectableLocales" \
+-  /data/vivo/home/config/runtime.properties
+-```
++Verify the interface and representative data after startup; service state alone does not prove the language behavior.
++
++## Operations, backups and costs
++
++- **Access and data:** secure administrator accounts, review SPARQL access and the effective NSG/UFW rules, and decide which research information may be public. External ingestion and identifier integrations require configuration or development.
++- **Maintenance:** plan OS and application updates, monitor logs, available disk space and service health. The 1.2.0 image follows the Azure LTS 6.8 kernel series through an APT policy; review that policy with the publisher before changing kernel series. A build-time security check is not continuous vulnerability assurance.
++- **Backups and recovery:** arrange application-consistent backups of VIVO RDF stores, home/configuration, Solr data and configuration, and configuration outside `/data` such as Tomcat and NGINX settings. Protect certificate keys and other secrets. Do not treat copying a live TDB directory as a validated backup. Test recovery on an isolated instance and document the tolerated data loss and recovery time. No automated backup policy or high-availability service is established by the archived image tests.
++- **Costs:** review plan charges separately from Azure VM, disks, networking, backups and external services. Stopping the guest OS is not the same as deallocating the VM; disks and networking can still incur charges after deallocation. See [Azure VM states and billing](https://learn.microsoft.com/en-us/azure/virtual-machines/states-billing).
++- **Institutional responsibilities:** assess data location, backups, replication, outbound flows, telemetry and external services under your policies. Running in your subscription does not by itself establish exclusive data residency, absence of telemetry or regulatory compliance. An image update does not automatically migrate an existing VM's data or configuration.
+ 
+ ---
+ 
+diff --git a/Deploying-from-Marketplace.md b/Deploying-from-Marketplace.md
+index 0c4e902de5309ea96ddcd4c41d1e7b14cd2242a3..d5c1e99711953a1a8c3464834ae0017540a89516 100644
+--- a/Deploying-from-Marketplace.md
++++ b/Deploying-from-Marketplace.md
+@@ -2,187 +2,96 @@
+ 
+ > 🇫🇷 Cette page est également disponible en français : [[fr_Deploying-from-Marketplace]]
+ 
+-This page describes the deployment fields in the reference template. The live Marketplace wizard and its correspondence to that template have **not** been independently verified for the currently published image. Field availability, labels and defaults may differ; confirm them in the wizard for your selected offer and version before deployment.
++Prepare an image **1.2.0** deployment with Ubuntu **24.04 LTS** and VIVO/Vitro **1.16.0**. See [[Home#image-120--status-and-verification]] for the dated distinction between the public offer and the preview.
+ 
+-The offer exposes a Marketplace VM image, while [Microsoft documents `createUiDefinition.json` for managed-application portal interfaces](https://learn.microsoft.com/en-us/azure/azure-resource-manager/managed-applications/create-uidefinition-overview). The existence of a reference UI definition does not establish that the published VM offer uses it or the accompanying ARM template. Treat the field tables below as a reference, not a confirmed description of the live wizard.
+-
+-> **Note — VIVO configuration:** The reference template generates its own `customData`; do not replace it with a second cloud-init file through **Advanced → Custom data**. If the live wizard lacks the fields you need or behaves differently, stop and contact the publisher rather than assuming these instructions apply.
+-
+----
+-
+-## Prerequisites
+-
+-You need an SSH public key before starting. See [[SSH-Connection]] to generate one.
+-
+----
+-
+-## Step 1 — Basics
+-
+-| Field | Description | Example |
+-|-------|-------------|---------|
+-| **Admin username** | SSH login for the VM | `azureuser` |
+-| **SSH public key** | Paste your OpenSSH public key | `ssh-ed25519 AAAA...` |
+-
+----
+-
+-## Step 2 — VM Configuration
+-
+-| Field | Description | Recommended |
+-|-------|-------------|-------------|
+-| **VM size** | Compute capacity | `Standard_D4s_v3` (production) |
+-| **Data disk size** | Storage for VIVO data (TDB1, Solr, logs) | `128 GB` minimum / `512 GB` for production |
+-| **Allowed SSH source IP** | CIDR range for SSH access | Your IP, e.g. `203.0.113.42/32` |
+-
+-> Setting SSH source IP to `*` allows access from any IP — acceptable for testing only.
+-
+-> ⚠️ **Lyrasis minimum recommendation:** `Standard_D4s_v3` (16 GB RAM, 4 vCPU) is the minimum for production use. `Standard_D2s_v3` (8 GB RAM) is suitable for development and testing only. See the [Lyrasis VIVO installation guide](https://wiki.lyrasis.org/display/VIVODOC115x/Installing+VIVO) and the heap sizing table in Step 3.
+-
+----
+-
+-## Network Ports
+-
+-The Azure NSG (Network Security Group) is automatically configured during deployment with the following inbound rules:
+-
+-| Port | Protocol | Service | NSG Rule | Notes |
+-|------|----------|---------|----------|-------|
+-| 443 | TCP | VIVO web interface (nginx) | **Allow** | Public access |
+-| 80 | TCP | HTTP → HTTPS redirect (nginx) | **Allow** | Auto-redirected to 443 |
+-| 22 | TCP | SSH remote administration | **Allow** | Restricted to source IP set in Step 2 |
+-| 8983 | TCP | Solr admin UI | **Deny** | Blocked at NSG level — internal only |
+-| 8080 | TCP | Tomcat (internal) | **Deny** | Blocked at NSG level — nginx reverse proxy only |
+-
+-> ⚠️ Ports 8080 (Tomcat) and 8983 (Solr) are **explicitly blocked** at the NSG level *and* by the VM firewall (UFW). Do not add NSG rules to open these ports — they are not designed for direct external access.
++This guide describes the intended **Advanced → Custom data** configuration path for the 1.2.0 VM image, based on its first-boot implementation. The archived tests deployed the exact image from the gallery; they do not validate the entire Marketplace wizard. Confirm the selected image and the availability of Custom data in your actual deployment. If the wizard differs, contact the publisher before creating the VM.
+ 
+ ---
+ 
+-## Step 3 — VIVO Configuration
++## Before deployment
+ 
+-In the reference definition, the **VIVO Configuration** section passes these values to the ARM template. In that template, cloud-init writes `/etc/vivo/install.conf` and starts the first-boot script. The mapping for the published offer remains to be verified.
++- Prepare SSH keys and verify the VM's host identity: see [[SSH-Connection]]. The SSH account is separate from the VIVO web account.
++- Choose an Azure subscription, region and resource group appropriate to your policies. Review plan pricing and Azure infrastructure costs.
++- Size CPU, RAM and disks for your data, indexing and expected usage. The checks performed do not establish a minimum production VM/disk size or a load capacity. Keep memory available for Solr, the OS and other processes when allocating the Tomcat heap.
++- Choose the permanent RDF namespace before adding institutional data. Changing identifiers later requires a planned data migration, not just a configuration edit.
+ 
+-| Field | Recommendation |
+-|-------|----------------|
+-| **VIVO RDF Namespace** | Define the permanent RDF base URI, for example `https://vivo.myuniversity.edu/individual/`. It must begin with `http://` or `https://` and end with `/`. |
+-| **VIVO Administrator Email** | Use a controlled institutional email address. |
+-| **VIVO Language(s)** | Select the interface languages, for example `en_CA` and `fr_CA`. |
+-| **Enable RDF Language Filter** | Leave disabled initially unless RDF content is consistently language-tagged. |
++## Step 1 — Select and configure the VM
+ 
+-> **Important:** The RDF namespace cannot be changed after real data has been loaded. Define it correctly before the first deployment.
++Open the [VIVO offer](https://marketplace.microsoft.com/en-us/product/cotechnoe.vivo-research-profiles?tab=Overview). Confirm the plan and exact image version. The VIVO application version or listing display version is not the image version; do not assume an unqualified latest selection is 1.2.0.
+ 
+-> When the RDF language filter is enabled, VIVO displays only content tagged with one of the selected languages and hides untagged content.
++In the VM creation wizard, configure the SSH administrator, SSH public key, VM size, disks and network. Let Azure inherit the OS disk requirement from the selected image rather than forcing a smaller disk.
+ 
+-### Supported language codes
++For separate data storage, attach a **new, empty data disk at LUN 0**. The 1.2.0 initialization mounts that disk at `/data` and formats an unformatted disk. Do not attach a disk containing data to preserve as an initialization experiment. Verify the final mount with [[Post-Deployment-Verification]].
+ 
+-| Code | Language |
+-|------|----------|
+-| `en_US` | English — United States |
+-| `en_CA` | English — Canada |
+-| `fr_CA` | French — Canada |
+-| `de_DE` | German |
+-| `es` | Spanish |
+-| `pt_BR` | Portuguese — Brazil |
+-| `ru_RU` | Russian |
+-| `sr_Latn_RS` | Serbian — Latin |
++Check the effective NSG and guest firewall rules:
+ 
+-### Template defaults
++| Port | Use | Required decision |
++| --- | --- | --- |
++| 443/TCP | VIVO through NGINX | Allow only the intended web clients. |
++| 80/TCP | HTTP redirect; HTTP-01 certificate challenge | Allow the certificate authority if using the NGINX/Let's Encrypt procedure. `/health` can return HTTP 200 without testing VIVO. |
++| 22/TCP | SSH | Restrict to trusted administration sources; avoid unrestricted access. |
++| 8080/TCP | Tomcat | Keep private; the image's UFW configuration denies external access. |
++| 8983/TCP | Solr | Keep private; the image's UFW configuration denies external access. |
+ 
+-The following defaults apply only when an ARM deployment omits the corresponding parameter. Marketplace users should set the VIVO fields in the wizard:
++Do not assume the published deployment creates a particular NSG or DNS name because the reference ARM template does so.
+ 
+-| Parameter | Default |
+-|-----------|---------|
+-| `VIVO_NAMESPACE` | `http://vivo.example.org/individual/` |
+-| `VIVO_ADMIN_EMAIL` | `vivo_root@example.org` |
+-| `VIVO_LANGUAGES` | `en_US` |
+-| `VIVO_LANGUAGE_FILTER` | `false` |
+-| `TOMCAT_HEAP_MIN` | Computed from the selected VM size |
+-| `TOMCAT_HEAP_MAX` | Computed from the selected VM size |
++## Step 2 — Provide the initial VIVO configuration
+ 
+-> See [[Configuring-VIVO]] for post-deployment reconfiguration instructions.
++For this image's Custom data path, place the following cloud-config in **Advanced → Custom data** before creating the VM. Replace the example namespace and email. Do not put passwords or private keys in it. See [Azure Custom data](https://learn.microsoft.com/en-us/azure/virtual-machines/custom-data) for its provisioning lifecycle and restrictions.
+ 
+-### Tomcat heap sizing by VM size
+-
+-The template calculates `TOMCAT_HEAP_MIN` and `TOMCAT_HEAP_MAX` from the selected VM's RAM. The formula used is:
+-- `TOMCAT_HEAP_MIN = RAM / 8`
+-- `TOMCAT_HEAP_MAX = RAM × 3/8`
++```yaml
++#cloud-config
++write_files:
++  - path: /etc/vivo/install.conf
++    owner: root:root
++    permissions: '0600'
++    content: |
++      VIVO_NAMESPACE='https://vivo.example.org/individual/'
++      VIVO_ADMIN_EMAIL='admin@example.org'
++      VIVO_LANGUAGES='en_US,fr_CA'
++      VIVO_LANGUAGE_FILTER='false'
++      TOMCAT_HEAP_MIN='2g'
++      TOMCAT_HEAP_MAX='6g'
++      VIVO_FQDN=''
++```
+ 
+-| VM Size | RAM | `TOMCAT_HEAP_MIN` | `TOMCAT_HEAP_MAX` | Note |
+-|---------|-----|-------------------|-------------------|------|
+-| `Standard_D2s_v3` | 8 GB | `1g` | `3g` | ⚠️ Below Lyrasis minimum — testing only |
+-| `Standard_D4s_v3` / `D4as_v4` | 16 GB | `2g` | `6g` | ✅ Lyrasis recommended minimum |
+-| `Standard_D8s_v3` / `D8as_v4` | 32 GB | `4g` | `12g` | ✅ Recommended for production |
+-| `Standard_D16s_v3` | 64 GB | `8g` | `24g` | ✅ Large collections |
++The image already schedules `/usr/local/bin/vivo-first-boot.sh` through cloud-init. This payload writes the settings it reads; it does not install the application stack again.
+ 
+-> The computed values are written to `/etc/vivo/install.conf`; do not add heap settings through Custom data.
++| Setting | Meaning |
++| --- | --- |
++| `VIVO_NAMESPACE` | RDF base URI ending in `/`; choose it for the institution before loading data. |
++| `VIVO_ADMIN_EMAIL` | Email used to configure the VIVO root account; not the SSH username or an email delivery configuration. |
++| `VIVO_LANGUAGES` | Locale codes separated by commas; one locale forces that locale, multiple locales enable selection when resources are available. |
++| `VIVO_LANGUAGE_FILTER` | `true` or `false`; see [[Configuring-VIVO]] before enabling it. |
++| `TOMCAT_HEAP_MIN`, `TOMCAT_HEAP_MAX` | The example reproduces the image's `2g`/`6g` fallback settings, not a sizing recommendation. Adapt to the VM and validate the workload. |
++| `VIVO_FQDN` | Leave empty to obtain a certificate later. If set, use a hostname already resolving to this VM and arrange HTTP-01 reachability before the first-boot request. |
+ 
+----
++The payload does not create a disk, DNS record or network rule. If no configuration is supplied, the image has example namespace/email, `en_US`, filter `false`, heap `2g`/`6g` and an empty FQDN as fallbacks. These are not institutional settings.
+ 
+-## Step 4 — Review + Create
++### Direct ARM deployment is a separate path
+ 
+-Review the resource group, region, VM size, disk, SSH restriction, namespace, administrator email, and language choices, then click **Create**. Azure will provision the VM and VIVO configures itself automatically on first boot. Allow 5–10 minutes before connecting.
++The reference ARM template generates its own cloud-init `customData` from parameters such as `vivoNamespace`, `vivoAdminEmail`, `vivoLanguages`, `vivoLanguageFilter`, `vmSize`, `dataDiskSizeGB` and `sshSourceIP`. Do not overwrite that generated payload with a second one. Its local image reference still targets **Jammy 1.1.19** at this review; it is not an approved 1.2.0 deployment artifact.
+ 
+-The deployment creates a public IP with an Azure FQDN. Use the FQDN, not the IP address, to access VIVO because the TLS certificate is issued for that name.
++The reference template maps VM sizes to heap values (`1g`/`3g`, `2g`/`6g`, `4g`/`12g`, `8g`/`24g`). This mapping is reference behavior, not an automatic calculation demonstrated in the Marketplace wizard or a production capacity recommendation. The presence of a `createUiDefinition.json` does not prove a standard VM offer exposes custom VIVO fields.
+ 
+----
++## Step 3 — Create and verify initialization
+ 
+-## After deployment
++Review costs, image version, resource group, network exposure and configuration, then create the VM. Azure provisioning completion does not prove VIVO initialization is complete; duration varies. Connect by SSH and follow [[Post-Deployment-Verification]]. Check cloud-init completion, the first-boot marker, `/data` mount and services before use.
+ 
+-Connect via SSH and verify:
++Read configuration and logs locally, and redact secrets, addresses and personal data before sharing excerpts. Do not rerun initialization or remove its marker as a reconfiguration shortcut; see [[Configuring-VIVO]].
+ 
+-```bash
+-sudo cat /etc/vivo/install.conf        # confirm configuration was applied
+-sudo cat /var/log/vivo-first-boot.log  # provisioning log
+-curl -sk https://localhost/ | grep -i vivo
+-```
++## Step 4 — Configure DNS, TLS and first login
+ 
+-Or run the **automated diagnostic** from your workstation to verify everything in one command (services, firewall, TLS, Solr, SPARQL, logs):
++Use the actual hostname assigned or configured for this deployment; a DNS name is not guaranteed by the Marketplace path. If required, the documentation toolkit can assign an Azure public-IP DNS label from your workstation:
+ 
+ ```bash
+ git clone https://github.com/Cotechnoe/vivo-azure-marketplace-docs.git
+ cd vivo-azure-marketplace-docs
+-make diag IP=<vm-public-ip>
++make set-dns IP=<vm-public-ip> DNS=<chosen-label>
+ ```
+ 
+-| Parameter | Required | Default | Description |
+-|-----------|----------|---------|-------------|
+-| `IP` | Yes | — | VM public IP address |
+-| `SSH_USER` | No | `azureuser` | SSH username |
+-| `SSH_KEY` | No | — | Path to SSH private key (uses ssh-agent if omitted) |
+-
+-> See [[Post-Deployment-Verification#automated-diagnostic|Automated Diagnostic]] for the full list of checks and setup instructions.
+-
+-The Marketplace deployment already assigns an Azure FQDN. If a VM was deployed outside the Marketplace template (for example by a test script), assign a DNS name with:
+-
+-```bash
+-make set-dns IP=<vm-public-ip>
+-```
+-
+-| Parameter | Required | Default | Description |
+-|-----------|----------|---------|-------------|
+-| `IP` | Yes | — | VM public IP address |
+-| `DNS` | No | auto-generated | DNS label prefix (e.g. `vivo-prod` → `vivo-prod.canadacentral.cloudapp.azure.com`) |
+-
+-> See [[Post-Deployment-Verification#assign-a-dns-name|Assign a DNS Name]] for details.
+-
+-Depending on the image release and deployment settings, first boot may attempt to obtain a Let's Encrypt certificate for the Azure FQDN. Issuance and its completion time are not guaranteed. Verify the certificate served before entering credentials. Use the following command to retry a failed initial request or to provision a certificate after assigning a DNS name outside the Marketplace template:
+-
+-```bash
+-make certbot IP=<vm-public-ip> FQDN=<fqdn> EMAIL=<your@email.com> SSH_KEY=~/.ssh/your-key.pem
+-```
+-
+-| Parameter | Required | Default | Description |
+-|-----------|----------|---------|-------------|
+-| `IP` | Yes | — | VM public IP address |
+-| `FQDN` | Yes | — | Fully qualified domain name (e.g. `vivo-prod.canadacentral.cloudapp.azure.com`) |
+-| `EMAIL` | Yes | — | Email for Let's Encrypt certificate notifications |
+-| `SSH_KEY` | Yes | — | Path to SSH private key |
+-| `SSH_USER` | No | `azureuser` | SSH username |
+-
+-> See [[HTTPS-TLS-Certificate]] for details on certificate management and renewal.
+-
+----
++This command changes an Azure resource in the CLI's selected subscription. Verify the subscription and public-IP resource first. For a private deployment, arrange DNS and certificate handling with your administrator instead.
+ 
+-## References
++NGINX initially serves a self-signed certificate. Supplying a FQDN can trigger a first-boot Certbot attempt; assigning DNS later does not rerun it. Obtain and verify a trusted certificate using [[HTTPS-TLS-Certificate]] before entering credentials. The 1.2.0 tests did not establish browser certificate trust.
+ 
+-- [[SSH-Connection]] — Generate and use your SSH key
+-- [[Post-Deployment-Verification]] — Health checks after deployment
+-- [[Configuring-VIVO]] — Namespace, i18n, and post-deployment changes
+-- [[Troubleshooting]] — Common issues and solutions
++Use [[Post-Deployment-Verification#first-vivo-administrator-login]] for the separate VIVO web account. Follow [[Configuring-VIVO#operations-backups-and-costs]] before keeping an instance or loading institutional data.
+diff --git a/Exploring-VIVO.md b/Exploring-VIVO.md
+index ffdeb7a4445a155429edcbbc6ea97be7da2d1abd..baf76b68f7d0d8856f4d90b6e6b397791ea0cd8d 100644
+--- a/Exploring-VIVO.md
++++ b/Exploring-VIVO.md
+@@ -4,7 +4,7 @@
+ 
+ This page walks you through the VIVO interface after a successful deployment. It covers logging in, searching, browsing profiles, and using the site administration tools.
+ 
+-> The examples below assume the [[Loading-Sample-Data|sample data]] has been loaded. On a fresh empty instance, search results will be empty until real or sample data is added.
++> The examples below assume the [[sample data|Loading-Sample-Data]] has been loaded. On a fresh empty instance, search results will be empty until real or sample data is added.
+ 
+ ---
+ 
+@@ -103,7 +103,7 @@ The **Site Admin** panel (accessible from the header when logged in as admin) pr
+ | Section | Description |
+ |---------|-------------|
+ | **Add/Remove RDF Data** | Load or delete RDF triples (N3, Turtle, RDF/XML) |
+-| **Ingest Menu** | Harvest data from external sources |
++| **Ingest Menu** | Ingestion tools; configure sources and integrations separately |
+ | **User Accounts** | Create and manage user accounts |
+ | **Site Configuration** | Theme, contact info, and display settings |
+ | **SPARQL Query** | Run SPARQL queries directly against the triplestore |
+@@ -119,7 +119,7 @@ VIVO includes built-in visualizations accessible from person and organization pr
+ - **Publication timeline** — chronological view of scholarly output
+ - **Geographic map** — distribution of collaborators by location (when location data is present)
+ 
+-These are available under the **Visualization** tab on profile pages.
++Tool availability and results depend on the interface, configuration and data. The 1.2.0 checks do not validate every visualization or integration; see [[Home#image-120--status-and-verification]].
+ 
+ ---
+ 
+diff --git a/HTTPS-TLS-Certificate.md b/HTTPS-TLS-Certificate.md
+index 6d5406acb3bc18cc16092458c98dc1969bb1b6e9..654ac23bdd9d232324573e8aedb39459c76076fe 100644
+--- a/HTTPS-TLS-Certificate.md
++++ b/HTTPS-TLS-Certificate.md
+@@ -8,12 +8,16 @@ VIVO is served exclusively over HTTPS (port 443). This page explains how the TLS
+ 
+ ## Automatic Let's Encrypt certificate
+ 
+-Depending on the Marketplace image release and deployment settings, first boot may attempt to obtain a TLS certificate from [Let's Encrypt](https://letsencrypt.org/). Issuance is not guaranteed: the FQDN must resolve to the VM, port 80 must be reachable, and the ACME request must succeed.
++Image **1.2.0** starts with a **self-signed certificate**. Its first-boot script attempts Let's Encrypt only if `VIVO_FQDN` is non-empty and Certbot is available. Confirm that your deployment actually supplies that value: the reference ARM template does so, but this does not establish the Marketplace wizard's behavior. Assigning a DNS name after first boot does not itself rerun the certificate request.
++
++The archived 1.2.0 tests used a self-signed certificate and bypassed trust checks. A browser-trusted certificate has **not** been demonstrated on that Marketplace path. The procedure below is a recovery/administration path, not a record of successful issuance for this preview.
++
++For the NGINX plugin's [HTTP-01 challenge](https://letsencrypt.org/docs/challenge-types/#http-01-challenge), public DNS must resolve to the intended endpoint and inbound port **80** must be reachable by the certificate authority. Allowing only your workstation through an NSG is insufficient for that challenge. For a private service, arrange an organizational certificate or a separately configured validation method; DNS-01 is not configured by this image.
+ 
+ **How it works:**
+ 
+ 1. Nginx starts with the certificate configured by the image.
+-2. If automatic provisioning is configured, the first-boot process attempts `certbot --nginx` for the deployment FQDN, for example:
++2. When the conditions above are met, first boot attempts `certbot --nginx` for the supplied FQDN, for example:
+    ```
+    {projectName}-{uniqueHash}.{region}.cloudapp.azure.com
+    ```
+@@ -32,7 +36,7 @@ Check the certificate configured on the VM:
+ # From the VM
+ sudo certbot certificates
+ 
+-# Expected output:
++# Example after successful issuance:
+ # Found the following certs:
+ #   Certificate Name: vivo-xxxx.canadacentral.cloudapp.azure.com
+ #   Domains: vivo-xxxx.canadacentral.cloudapp.azure.com
+@@ -49,13 +53,13 @@ curl --silent --show-error --output /dev/null \
+   "https://${FQDN}/"
+ ```
+ 
+-The TLS verification result should be `0`. You can also inspect the certificate in your browser and confirm its subject/SAN includes the FQDN and that the browser trusts its issuer.
++The command must exit successfully and report TLS verification result `0`; an HTTP response or certificate expiry date alone is insufficient. Do not add `-k` to this trust check. You can also inspect the certificate in your browser and confirm its subject/SAN includes the FQDN and that the browser trusts its issuer.
+ 
+ ---
+ 
+ ## Browser security warning (self-signed fallback)
+ 
+-If the first-boot request fails (for example, because DNS is not ready, port 80 is blocked, or an ACME limit is reached), the fallback certificate may remain active.
++If no FQDN was supplied, no request was made. If a request failed (for example, DNS not ready, port 80 blocked or an ACME limit reached), the self-signed certificate may remain active. An expired or mismatched custom certificate can also cause a warning.
+ 
+ **Symptom:** The browser reports that the certificate is untrusted, expired, or does not match the FQDN.
+ 
+@@ -67,7 +71,7 @@ Do not use the public IP in the browser URL: the certificate is issued for a hos
+ 
+ ## Manual certificate provisioning
+ 
+-If automatic provisioning failed, first confirm that the FQDN resolves to the VM's current public IP and that inbound port 80 is reachable. From your workstation, request the certificate with:
++If no request was made or automatic provisioning failed, first confirm that the FQDN resolves to the VM's current public IP and that inbound port 80 is reachable. From a clone of the documentation repository on your workstation, with `make`, OpenSSH and OpenSSL installed, request the certificate with:
+ 
+ ```bash
+ make certbot IP=<vm-public-ip> FQDN=<fqdn> EMAIL=<your@email.com> SSH_KEY=~/.ssh/your-key.pem
+@@ -106,7 +110,7 @@ curl --silent --show-error --output /dev/null \
+ 
+ ## Certificate renewal
+ 
+-Check the renewal mechanism configured on this image; it may be a systemd timer or a cron job. Do not assume that a timer or cron entry is active just because the certificate exists.
++Use the [Certbot renewal guidance](https://eff-certbot.readthedocs.io/en/stable/using.html#automated-renewals) to check the mechanism configured on this image; it may be a systemd timer or a cron job. Do not assume that a timer or cron entry is active just because the certificate exists.
+ 
+ For a systemd timer:
+ ```bash
+diff --git a/Home.md b/Home.md
+index 016f61c1a5e6dc98cebf50d4a6a6eec87dceb51e..f581cb7ebb78402d930a18c2c953d72264e8e4fe 100644
+--- a/Home.md
++++ b/Home.md
+@@ -1,13 +1,29 @@
+ # VIVO Knowledge Graph — Azure Marketplace Documentation
+ 
+-Welcome to the official documentation for **VIVO Knowledge Graph** deployed via the Microsoft Azure Marketplace.
+-
+ > 🇫🇷 Cette page est également disponible en français : [[fr_Home]]
+ 
++Welcome to the official documentation for **VIVO Knowledge Graph** deployed via the Microsoft Azure Marketplace.
++
+ VIVO is an open-source research networking platform used by universities and research institutions to represent, manage, and share scholarly data as a semantic knowledge graph.
+ 
+ ---
+ 
++## Image 1.2.0 — status and verification
++
++| Item | Verified or reported status as of 14 November 2026 |
++| --- | --- |
++| Preview image | **1.2.0**, Ubuntu **24.04 LTS**; VIVO and Vitro **1.16.0** |
++| Included stack | Java 21, Tomcat 9, Solr 9, Jena TDB1 and NGINX; configuration and ongoing administration are required |
++| Marketplace | Certification and preview creation succeeded according to the publisher's confirmation and Partner Center screenshot; Go live was pending. The screenshot does not itself show the image version. |
++| Public offer | The listing observed that day still described Ubuntu 22.04; confirm the image actually selected before deployment. |
++| Checks performed | Image packaging/provenance and guest OS/services checked; network smoke 10/10, Chromium 3/3 and Firefox form population 1/1 passed on a test VM from the exact image. |
++| Limits | SPARQL required authentication. TLS used a self-signed certificate. Form population omitted incomplete source subjects and an unsupported publication-venue relationship; it was not an identical RDF import. |
++| Certification Test Tool | Official CTT report deferred; Partner Center certification does not replace that report. |
++
++These results do not establish general VIVO functional correctness, browser certificate trust, workload capacity or the complete Marketplace deployment path. The intended initial configuration path for image 1.2.0 uses Custom data; follow [[Deploying-from-Marketplace]] for deployment checks and [[Configuring-VIVO]] for operation and backups. A new VM does not automatically migrate an existing instance's data or configuration.
++
++---
++
+ ## Quick Start
+ 
+ Want to verify the offer before planning a full deployment? Start with [[Quick Start Evaluation|Quick-Start-Evaluation]]. It uses a temporary, test-only environment and includes the cleanup step.
+@@ -16,49 +32,41 @@ For a full deployment, VIVO is available directly from the [Microsoft Azure Mark
+ 
+ | Step | Description | Page |
+ |------|-------------|------|
+-| 1 | Deploy VIVO and fill in configuration parameters | [[Deploying-from-Marketplace]] |
++| 1 | Select the image and confirm its configuration method | [[Deploying-from-Marketplace]] |
+ | 2 | Connect to the VM via SSH | [[SSH-Connection]] |
+ | 3 | Verify services are running | [[Post-Deployment-Verification]] |
+-| 3 | Confirm HTTPS certificate is active | [[HTTPS-TLS-Certificate]] |
+-| 4 | Configure VIVO settings | [[Configuring-VIVO]] |
+-| 5 | Load sample data to explore features | [[Loading-Sample-Data]] |
+-| 6 | Explore the VIVO interface | [[Exploring-VIVO]] |
+-| 7 | Troubleshoot common issues | [[Troubleshooting]] |
++| 4 | Verify HTTPS certificate trust | [[HTTPS-TLS-Certificate]] |
++| 5 | Configure VIVO settings | [[Configuring-VIVO]] |
++| 6 | Load sample data to explore features | [[Loading-Sample-Data]] |
++| 7 | Explore the VIVO interface | [[Exploring-VIVO]] |
++| 8 | Troubleshoot common issues | [[Troubleshooting]] |
+ 
+ ---
+ 
+ ## Architecture Overview
+ 
+-```
+-Internet (HTTPS 443 / HTTP 80)
+-        │
+-     nginx  ──  reverse proxy + TLS (Let's Encrypt may be attempted; fallback may remain)
+-        │
+-     Tomcat 9  (port 8080 — internal only)
+-        │
+-     VIVO application  (ROOT.war)
+-        │
+-     Apache Solr  (port 8983 — internal only)
+-        │
+-     /data  ──  Azure managed data disk  (TDB1 triplestore, Solr index, logs)
++```text
++Client -- HTTPS --> NGINX -- HTTP loopback --> Tomcat / VIVO
++                                               |-- Jena TDB1: RDF storage
++                                               |-- Solr: search index
++/data: VIVO home, RDF stores, Solr data and logs
+ ```
+ 
+-> **Security:** Ports **8080** (Tomcat) and **8983** (Solr) are blocked at the NSG level.
+-> Only ports **80** (HTTP → HTTPS redirect) and **443** (HTTPS) are publicly accessible.
++The image configures UFW to deny external access to Tomcat (8080) and Solr (8983). Also check the deployment's effective Azure NSG rules: restrict SSH (22) to trusted sources, allow web access only as intended, and keep 8080/8983 private. DNS, a separate data disk and NSG rules depend on the deployment; verify them instead of assuming they were created.
+ 
+ ---
+ 
+ ## Deployment Parameters
+ 
+-These are parameter names from the reference deployment template, not a verified list of the current Marketplace wizard fields. See [[Deploying-from-Marketplace]] for the verification limits and [[Post-Deployment-Verification#first-vivo-administrator-login]] for first login.
++These are parameter names from the reference ARM template, not fields to expect in the Marketplace VM wizard. The deployment guide describes the intended Custom data path for image 1.2.0 without claiming the complete Marketplace wizard was tested. See [[Deploying-from-Marketplace]] for the verification limits and [[Post-Deployment-Verification#first-vivo-administrator-login]] for first login.
+ 
+ | Parameter | Description | Example |
+ |-----------|-------------|---------|
+ | `adminUsername` | VM SSH administrator username | `azureuser` |
+ | `adminPublicKey` | SSH public key (OpenSSH format) | `ssh-ed25519 AAAA...` |
+-| `vmSize` | Azure VM size | `Standard_D2s_v3` |
+-| `dataDiskSizeGB` | Data disk size for VIVO storage | `64` |
+-| `sshSourceIP` | Allowed CIDR for SSH access | `203.0.113.0/32` or `*` |
++| `vmSize` | Azure VM size | Choose for the workload |
++| `dataDiskSizeGB` | Data disk size for VIVO storage | Size for the workload |
++| `sshSourceIP` | Allowed CIDR for SSH access | Trusted source CIDR |
+ | `vivoNamespace` | RDF base URI for VIVO entities | `http://vivo.myuniversity.edu/individual/` |
+ | `vivoAdminEmail` | VIVO administrator login email | `vivo_root@myuniversity.edu` |
+ | `vivoLanguages` | Supported locale(s) | `en_US` or `en_US,fr_CA` |
+diff --git a/Loading-Sample-Data.md b/Loading-Sample-Data.md
+index 5fffb0dc47351ab9c5758fd337ca29e8acdbb7d8..c9d947535dccc0054dade9fc501f24b45525cb9d 100644
+--- a/Loading-Sample-Data.md
++++ b/Loading-Sample-Data.md
+@@ -16,14 +16,14 @@ Two loading scenarios are covered below:
+ ## Prerequisites
+ 
+ - VIVO is running and accessible at `https://<fqdn>/`
+-- You are logged in as the **site administrator** (the email and password set at deployment)
++- You are logged in as the **site administrator** (the account secured for this instance; see [[Post-Deployment-Verification#first-vivo-administrator-login]])
+ - Navigate to: **Site Admin → Add/Remove RDF Data**
+ 
+ ---
+ 
+ ## Scenario 1 — Without i18n (English only)
+ 
+-Load a single N3 file. Labels are embedded in English with no language tags.
++Load a single N3 file. The current upstream file includes English language-tagged labels; it is not an untagged dataset.
+ 
+ ### Step 1 — Load the sample data
+ 
+@@ -31,7 +31,7 @@ In **Add/Remove RDF Data**:
+ 
+ | Field | Value |
+ |-------|-------|
+-| URL | `https://raw.githubusercontent.com/vivo-project/sample-data/master/sample-data.n3` |
++| URL | `https://raw.githubusercontent.com/vivo-project/sample-data/main/sample-data.n3` |
+ | Action | **Add instance data** |
+ | File type | **N3** |
+ 
+@@ -51,27 +51,13 @@ The `i18n/` directory of the sample data repository distributes labels by locale
+ 
+ | File | Content |
+ |------|---------|
+-| [`sample-data.ttl`](https://raw.githubusercontent.com/vivo-project/sample-data/master/i18n/sample-data.ttl) | Base data — structure and relationships, **no language-tagged labels** |
+-| [`sample-data-en_US.ttl`](https://raw.githubusercontent.com/vivo-project/sample-data/master/i18n/sample-data-en_US.ttl) | English (`en_US`) labels for all resources |
+-| [`sample-data-fr_CA.ttl`](https://raw.githubusercontent.com/vivo-project/sample-data/master/i18n/sample-data-fr_CA.ttl) | French Canadian (`fr_CA`) labels for all resources |
++| [`sample-data-i18n.ttl`](https://raw.githubusercontent.com/vivo-project/sample-data/main/i18n/sample-data-i18n.ttl) | Base data — structure, relationships and English-tagged labels |
++| [`sample-data-i18n-en_US.ttl`](https://raw.githubusercontent.com/vivo-project/sample-data/main/i18n/sample-data-i18n-en_US.ttl) | Additional English (`en_US`) statements; not a complete set for every resource |
++| [`sample-data-i18n-fr_CA.ttl`](https://raw.githubusercontent.com/vivo-project/sample-data/main/i18n/sample-data-i18n-fr_CA.ttl) | Additional French Canadian (`fr_CA`) statements; not a complete translation |
+ 
+ ### Step 1 — Enable multi-locale mode
+ 
+-SSH into the VM and configure `runtime.properties` for multi-locale:
+-
+-```bash
+-sudo sed -i \
+-  -e 's|^languages\.forceLocale|#languages.forceLocale|' \
+-  -e 's|^#\?languages\.selectableLocales.*|languages.selectableLocales = en_US, fr_CA|' \
+-  -e 's|^RDFService\.languageFilter.*|RDFService.languageFilter = true|' \
+-  /data/vivo/home/config/runtime.properties
+-sudo systemctl restart tomcat
+-```
+-
+-Wait for Tomcat to restart (~30 seconds), then verify:
+-```bash
+-grep -E "languageFilter|forceLocale|selectableLocales" /data/vivo/home/config/runtime.properties
+-```
++Follow [[Configuring-VIVO#mode-2--multi-locale]] to configure the active file, including missing or commented properties. After restarting Tomcat, verify the selector and sample values before importing more data. The base file already includes English labels; the locale files supplement it.
+ 
+ ### Step 2 — Load base data
+ 
+@@ -79,7 +65,7 @@ In **Site Admin → Add/Remove RDF Data**:
+ 
+ | Field | Value |
+ |-------|-------|
+-| URL | `https://raw.githubusercontent.com/vivo-project/sample-data/master/i18n/sample-data.ttl` |
++| URL | `https://raw.githubusercontent.com/vivo-project/sample-data/main/i18n/sample-data-i18n.ttl` |
+ | Action | **Add instance data** |
+ | File type | **Turtle** |
+ 
+@@ -89,7 +75,7 @@ Click **Submit**.
+ 
+ | Field | Value |
+ |-------|-------|
+-| URL | `https://raw.githubusercontent.com/vivo-project/sample-data/master/i18n/sample-data-en_US.ttl` |
++| URL | `https://raw.githubusercontent.com/vivo-project/sample-data/main/i18n/sample-data-i18n-en_US.ttl` |
+ | Action | **Add instance data** |
+ | File type | **Turtle** |
+ 
+@@ -99,7 +85,7 @@ Click **Submit**.
+ 
+ | Field | Value |
+ |-------|-------|
+-| URL | `https://raw.githubusercontent.com/vivo-project/sample-data/master/i18n/sample-data-fr_CA.ttl` |
++| URL | `https://raw.githubusercontent.com/vivo-project/sample-data/main/i18n/sample-data-i18n-fr_CA.ttl` |
+ | Action | **Add instance data** |
+ | File type | **Turtle** |
+ 
+@@ -134,22 +120,22 @@ Verify the visualization data API returns results before testing the browser UI:
+ 
+ ```bash
+ # List all indexed research area concepts
+-curl -sk "https://<fqdn>/visualizationAjax?vis=capabilitymap&query=all&data=concepts" | head -c 500
++curl -sS "https://<fqdn>/visualizationAjax?vis=capabilitymap&query=all&data=concepts" | head -c 500
+ 
+ # Retrieve researchers linked to a specific concept
+-curl -sk "https://<fqdn>/visualizationAjax?vis=capabilitymap&query=Rhetoric&callback=ipretResults&noCacheIE=1" | head -c 500
++curl -sS "https://<fqdn>/visualizationAjax?vis=capabilitymap&query=Rhetoric&callback=ipretResults&noCacheIE=1" | head -c 500
+ ```
+ 
+-Expected: A JavaScript JSONP callback containing JSON data (`ipretResults({...})`).
++For the request containing `callback=ipretResults`, inspect the JSONP response (`ipretResults({...})`) and its records; this does not validate the browser visualization.
+ 
+-If the response is HTML (a VIVO error page), the data is missing. If the browser blocks the request, see [[Troubleshooting#capability-map-is-empty--jsonp-blocked-by-mime-type]].
++If the response is HTML, inspect HTTP status, authentication and the application error; it does not uniquely prove missing data. If the browser blocks the request, see [[Troubleshooting#capability-map-is-empty--jsonp-blocked-by-mime-type]].
+ 
+ ### Check Content-Type header
+ 
+ Browsers enforce strict MIME checking. Confirm nginx returns the correct type:
+ 
+ ```bash
+-curl -sk -I "https://<fqdn>/visualizationAjax?vis=capabilitymap&query=Rhetoric&callback=ipretResults&noCacheIE=1" \
++curl -sS -I "https://<fqdn>/visualizationAjax?vis=capabilitymap&query=Rhetoric&callback=ipretResults&noCacheIE=1" \
+   | grep -i content-type
+ ```
+ 
+@@ -158,15 +144,15 @@ Expected:
+ content-type: application/javascript; charset=UTF-8
+ ```
+ 
+-If it returns `text/html`, apply the nginx fix described in [[Troubleshooting#capability-map-is-empty--jsonp-blocked-by-mime-type]].
++If it returns `text/html`, inspect the response and active configuration before considering the historical workaround in [[Troubleshooting#capability-map-is-empty--jsonp-blocked-by-mime-type]].
+ 
+ ---
+ 
+ ## Namespace note
+ 
+-The VIVO sample data from [vivo-project/sample-data](https://github.com/vivo-project/sample-data) uses the default namespace `http://vivo.mydomain.edu/individual/`. When your VIVO instance is configured with a custom namespace (e.g. `http://vivo.myinstitution.edu/individual/`), the Capability Map and search features will work correctly, but direct URI navigation to individual profile pages may not resolve.
++Inspect the namespaces in the chosen upstream files: their resource URIs can differ from the namespace configured for your instance. Loading a file does not rewrite its identifiers. Verify profile links, search and visualizations rather than assuming they work for every namespace combination.
+ 
+-This is expected when using Lyrasis sample data as-is on a customized deployment. The data serves its purpose for exploring VIVO features; it is not intended for production use.
++The archived 1.2.0 Firefox scenario reconstructed selected data through forms, with incomplete source subjects and an unsupported publication-venue relation omitted. It did not exercise this RDF-import procedure or establish an identical graph. Upstream files may change; record the revision used for a repeatable test.
+ 
+ ---
+ 
+diff --git a/Post-Deployment-Verification.md b/Post-Deployment-Verification.md
+index bb2259a2c94f0bc2a883837ca9add6362ae17950..645b1a3f5453727f37a922be225c10e00678add1 100644
+--- a/Post-Deployment-Verification.md
++++ b/Post-Deployment-Verification.md
+@@ -2,13 +2,13 @@
+ 
+ > 🇫🇷 Cette page est également disponible en français : [[fr_Post-Deployment-Verification]]
+ 
+-After deployment, verify that all VIVO services are running correctly.
++After deployment, check initialization, storage, service responses and TLS separately. See [[Home#image-120--status-and-verification]] for the scope of the archived image 1.2.0 tests.
+ 
+ ---
+ 
+ ## Automated Diagnostic
+ 
+-A companion tool runs all post-deployment checks in a single command **from your workstation** — no manual SSH sessions required.
++A companion tool runs a set of diagnostic probes in a single command **from your workstation** — no manual SSH sessions required.
+ 
+ **Prerequisites:** Git, `make`, SSH access to the VM, and your SSH private key. The public repository can be cloned over HTTPS without GitHub SSH authentication.
+ 
+@@ -24,26 +24,26 @@ If your SSH user or key path differ from the defaults:
+ make diag IP=<vm-public-ip> SSH_USER=azureuser SSH_KEY=~/.ssh/your-key.pem
+ ```
+ 
+-The script runs **12 checks** and prints a colour-coded summary:
++The script covers **12 diagnostic sections** and prints a colour-coded summary:
+ 
+ | # | Check | What it verifies |
+ |---|-------|------------------|
+-| 1 | cloud-init | Provisioning completed successfully |
+-| 2 | First-boot | `/etc/vivo/.first-boot-done` present (or log confirms completion) |
+-| 3 | Install config | `/etc/vivo/install.conf` loaded with correct values |
+-| 4 | Systemd services | nginx / tomcat / solr are `active` and `enabled` |
++| 1 | cloud-init | Reported cloud-init status; does not test every application function |
++| 2 | First-boot | Marker present, or completion inferred by a log-text heuristic |
++| 3 | Install config | File exists and its contents are displayed; review values yourself |
++| 4 | Systemd services | nginx / tomcat / solr active state checked; enabled state displayed |
+ | 5 | Disk usage | `/data` (or root) usage below warning threshold |
+-| 6 | HTTP/HTTPS | Port 80 redirects (301) and port 443 returns 200 |
+-| 7 | TLS certificate | Certificate expiry from the running nginx |
+-| 8 | UFW firewall | Ports 8983 (Solr) and 8080 (Tomcat) are explicitly `DENY` |
++| 6 | HTTP/HTTPS | Local HTTP redirect (301/302) and HTTPS response with trust checks bypassed |
++| 7 | TLS certificate | Expiry text from local NGINX; no chain, hostname or expiry-threshold validation |
++| 8 | UFW firewall | Textual DENY entries for 8983/8080; not an effective NSG audit |
+ | 9 | Solr ping | `vivocore` core responds OK (tested from inside the VM) |
+ | 10 | SPARQL endpoint | `/api/sparqlQuery` responds (200 or 403 — both acceptable) |
+-| 11 | Tomcat heap | JVM `-Xms`/`-Xmx` settings are configured |
+-| 12 | Error scan | No ERROR/Exception lines in first-boot and Tomcat logs |
++| 11 | Tomcat heap | Heap settings found in files, not workload suitability |
++| 12 | Error scan | Recent matching log lines reported as warnings; not an exhaustive scan |
+ 
+-**Exit codes:** `0` = all passed · `1` = one or more FAIL · `2` = SSH connection error
++**Exit codes:** `0` = no FAIL recorded (WARNs may remain) · `1` = one or more FAIL · `2` = SSH connection error
+ 
+-**Typical healthy output:**
++**Illustrative summary; counts vary and do not certify a healthy deployment:**
+ ```
+ ════════════════════════════════════════════════════════
+   OK  : 16   FAIL: 0   WARN: 2
+@@ -51,14 +51,22 @@ The script runs **12 checks** and prints a colour-coded summary:
+ ```
+ 
+ > **Expected WARNs:**
+-> - *First-boot marker absent* — downgraded to WARN when the log confirms the boot completed. The marker file is created by the first-boot script; if absent it is not critical.
+-> - *`/data` not found* — normal on VMs without a separate data disk. The root filesystem usage is reported as a fallback.
++> - *First-boot marker absent* — downgraded to WARN when the log confirms the boot completed. The fallback is a log-text heuristic; confirm completion and investigate a missing marker before relying on initialization.
++> - *`/data` not found* — root filesystem usage is reported as a fallback. This does not prove the intended data disk is available; investigate before loading data.
++
++---
++
++## Interpret the diagnostic limits
++
++A 200 or 403 SPARQL status is accepted by this helper, without validating authenticated query results. A 401 with an authentication challenge can indicate a protected endpoint, but the current helper reports it as FAIL. Inspect status, challenge and access policy; do not make SPARQL public just to clear a diagnostic failure.
++
++HTTP/HTTPS probes run **inside the VM**. They do not validate external NSG reachability, DNS, browser trust or backup recoverability. `curl -k` bypasses certificate checks; a successful page response with that option is not a TLS trust check. Review and redact the diagnostic output before sharing it, as it prints addresses, configuration and log excerpts.
+ 
+ ---
+ 
+ ## Assign a DNS Name
+ 
+-VMs deployed through the Azure Marketplace receive a DNS name automatically. If you created the VM via the Portal wizard or a test script, the DNS name may be absent.
++Check whether this deployment has a DNS name; Marketplace does not establish that the reference ARM template generated one. The helper below changes the Azure public-IP resource and uses the CLI's current subscription. Confirm that subscription and resource before running it. It does not configure private DNS or request a certificate.
+ 
+ Assign a DNS label in one command (requires `az` CLI logged in with the appropriate subscription):
+ 
+@@ -92,6 +100,22 @@ If status is `running`, first-boot is still in progress — wait a few minutes a
+ 
+ ---
+ 
++## Check OS, image provenance and storage
++
++For image 1.2.0, check Ubuntu 24.04 and the active Azure LTS 6.8 kernel. The provenance file identifies the packaged VIVO/Vitro sources and WAR checksum; it does not identify the Marketplace image selected in Azure, which must be checked separately.
++
++```bash
++cat /etc/os-release
++uname -r
++sudo cat /etc/vivo/build-provenance.json
++findmnt --mountpoint /data
++lsblk -f
++```
++
++If a separate data disk was requested, `/data` must be a mount from that disk. A `/data` directory on the OS disk is not proof that the data disk mounted. Investigate a missing mount before loading data.
++
++---
++
+ ## Check services
+ 
+ ```bash
+@@ -105,7 +129,7 @@ All three should return `active`.
+ ## Check VIVO responds
+ 
+ ```bash
+-curl -sk -o /dev/null -w "%{http_code}" http://localhost:8080/
++curl -sS -o /dev/null -w "%{http_code}" http://localhost:8080/
+ ```
+ 
+ Expected: `200`
+@@ -125,9 +149,11 @@ Navigate to `https://<fqdn>/` using the FQDN assigned to the VM.
+ 
+ The VIVO administrator login is separate from the VM's SSH account. Verify the TLS certificate for `https://<fqdn>/` before entering credentials; see [[HTTPS-TLS-Certificate]].
+ 
+-The reference deployment template maps its administrator email input to `rootUser.emailAddress`. Its inputs do **not** include a `vivoAdminPassword` parameter. The published offer's current wizard and image have not been independently checked against that template; use the email and first-login instructions supplied with your actual deployment, or contact the publisher if they are unclear. Do not assume the SSH key or SSH username is the VIVO password.
++The 1.2.0 first-boot implementation maps `VIVO_ADMIN_EMAIL` to `rootUser.emailAddress`; verify that your configuration was applied. The reference ARM inputs do **not** include a `vivoAdminPassword` parameter. The published offer's current wizard and image have not been independently checked against that template; use the email and first-login instructions supplied with your actual deployment, or contact the publisher if they are unclear. Do not assume the SSH key or SSH username is the VIVO password.
++
++For comparison, the [Vitro root-user implementation at the revision packaged in 1.2.0](https://github.com/vivo-project/Vitro/blob/c6fdb5091b9026f57901c97cfec88223a63cff47/api/src/main/java/edu/cornell/mannlib/vitro/webapp/auth/RootUserSetup.java#L106) creates a root account only when the configured root email has no existing account. For that new account it uses a public default initial password when `rootUser.password` is not configured and, by default, requires a password change. Both settings can be overridden. **This source does not establish which settings the published image uses.** Do not assume an existing account has been reset when the VM restarts.
+ 
+-For comparison, the [Vitro root-user implementation at the reference revision](https://github.com/vivo-project/Vitro/blob/c6fdb5091b9026f57901c97cfec88223a63cff47/api/src/main/java/edu/cornell/mannlib/vitro/webapp/auth/RootUserSetup.java#L106) creates a root account only when the configured root email has no existing account. For that new account it uses a public default initial password when `rootUser.password` is not configured and, by default, requires a password change. Both settings can be overridden. **This source does not establish which settings the published image uses.** Do not assume an existing account has been reset when the VM restarts.
++The archived Chromium tests render the homepage, HTTP redirect and login form without submitting credentials. The Firefox population test signs in using credentials supplied through a private file and expects `/siteAdmin`; it does not test creation of a new root account or the mandatory first-password-change flow. Do not infer those behaviors from the passed test counts.
+ 
+ Use the password explicitly specified for your deployed version, restrict access until the account is secured, and change any initial or default password immediately to a unique strong password. If the expected credentials or change-password flow do not work, stop and consult the publisher or instance administrator; do not post credentials or configuration secrets in a public issue.
+ 
+diff --git a/Quick-Start-Evaluation.md b/Quick-Start-Evaluation.md
+index 7bf22a1a05e1c659d9cde2fad83b56223ced2476..b587e0cccce650770054c833267bf199f617241b 100644
+--- a/Quick-Start-Evaluation.md
++++ b/Quick-Start-Evaluation.md
+@@ -6,7 +6,7 @@ Use this guide to confirm that the VIVO Azure Marketplace offer deploys and open
+ 
+ > Use the complete [[Deploying-from-Marketplace]] guide when you plan to keep the instance or load institutional data.
+ 
+-> **Estimated time:** Allow 20 to 30 minutes with an active Azure subscription. Creating or verifying a new Azure account can take longer.
++> **Timing:** Account verification, regional capacity, VM initialization and certificate issuance vary; no deployment or certificate completion time is guaranteed.
+ 
+ ---
+ 
+@@ -18,7 +18,7 @@ Use this guide to confirm that the VIVO Azure Marketplace offer deploys and open
+ 2. Go to [Azure Free](https://azure.microsoft.com/free/) and create an Azure account. The sign-up process creates or activates an Azure subscription; it may ask for identity and payment verification.
+ 3. Sign in to the [Azure portal](https://portal.azure.com/) and confirm that you can select an active subscription.
+ 
+-Creating the VM, public IP address, and managed disk can incur Azure charges after any free credit or trial period. Review the pricing and subscription terms shown during sign-up before continuing.
++The Marketplace plan, VM, public IP address and disks may incur charges; do not assume the offer is covered by free credits or free-account services. Review the pricing and subscription terms shown during sign-up before continuing.
+ 
+ ### 2. Diagnose access for an existing account
+ 
+@@ -38,53 +38,29 @@ If the wizard only asks you to paste an SSH public key, create one first by foll
+ 
+ ### 4. Plan cleanup
+ 
+-Plan to delete the evaluation resource group when you are finished. Deleting the group removes its VM, public IP address, managed disk, and related charges.
++Use a dedicated evaluation resource group and keep institutional data out of it. Agree who may remove the resources when the trial is finished. Review both the plan price and Azure infrastructure charges before creating anything.
+ 
+-Do not load real institutional data into this environment. The `Standard_D2s_v3` VM and 64 GB data disk below are intended for testing only.
++## Step 1 — Select the offer and image
+ 
+-## Step 1 — Open the offer
++Open the [VIVO offer](https://marketplace.microsoft.com/en-us/product/cotechnoe.vivo-research-profiles?tab=Overview). Confirm whether you are evaluating the public offer or the 1.2.0 preview; the dated [[release status|Home#image-120--status-and-verification]] distinguishes them.
+ 
+-Open **VIVO Knowledge Graph** in the [Microsoft Azure Marketplace](https://marketplace.microsoft.com/en-us/product/cotechnoe.vivo-research-profiles?tab=Overview) and select **Create**.
++## Step 2 — Configure and deploy
+ 
+-## Step 2 — Complete the essential fields
++Follow [[Deploying-from-Marketplace]] for VM, disks, network and the intended Custom data path of image 1.2.0. That guide supplies the configuration example and distinguishes direct ARM deployment. The archived image checks are not an end-to-end validation of the Marketplace wizard.
+ 
+-The following values correspond to the reference template and are suggestions for evaluation. The live wizard has not been independently checked against that template; confirm the fields and selected image version before deployment. If a necessary field is missing or differs, stop and contact the publisher.
++Use a temporary namespace such as `https://vivo-evaluation.example.org/individual/`, a controlled administrator email and one locale such as `en_US`. Choose VM/disk capacity for the evaluation; no minimum size or workload capacity is established here.
+ 
+-| Section | Field | Evaluation value |
+-|---------|-------|------------------|
+-| Basics | Resource group | Create a new, clearly named evaluation resource group, for example `rg-vivo-evaluation`. |
+-| Basics | Admin username and SSH authentication | Use an account name you control. Select **Generate new key pair** when available, then download and keep the private key file. Otherwise, paste an existing OpenSSH public key. |
+-| VM Configuration | VM size | `Standard_D2s_v3` |
+-| VM Configuration | Data disk size | `64 GB` |
+-| VM Configuration | Allowed SSH source IP | Your current public IP with `/32`, for example `203.0.113.42/32`. |
+-| VIVO Configuration | VIVO RDF Namespace | A temporary, unique URI, for example `https://vivo-evaluation.example.org/individual/`. |
+-| VIVO Configuration | VIVO Administrator Email | An email address you can access. |
+-| VIVO Configuration | VIVO Language(s) | Select one language, such as `en_US`. |
+-| VIVO Configuration | Enable RDF Language Filter | Leave disabled. |
++## Step 3 — Verify initialization and HTTPS
+ 
+-Do not replace a template-generated cloud-init configuration through **Advanced → Custom data**. The reference ARM template generates its own first-boot configuration; its correspondence with the published offer remains to be verified.
++Follow [[Post-Deployment-Verification]] to check cloud-init, storage and services. Then configure DNS if needed and follow [[HTTPS-TLS-Certificate]] to obtain and verify a certificate for `https://<fqdn>/` before entering credentials. An HTTP response with certificate verification disabled is not evidence of browser trust.
+ 
+-## Step 3 — Create and wait
++A rendered home page confirms only that page's response. Check the intended account, configuration and functions separately; sample-data import is not established by the form-population tests.
+ 
+-Review the deployment and select **Create**. Allow 5 to 10 minutes after Azure reports that deployment is complete: the VM still needs to initialize VIVO, Solr, Tomcat, and nginx.
++## Step 4 — Finish the evaluation
+ 
+-## Step 4 — Open VIVO
+-
+-Find the Azure FQDN created for the VM, then open:
+-
+-```
+-https://<azure-fqdn>/
+-```
+-
+-Use the FQDN rather than the public IP address. Depending on the image release and deployment settings, first boot may attempt to provision a TLS certificate for that name, but issuance and its completion time are not guaranteed. Verify the certificate before entering credentials; if it is untrusted, do not bypass the warning and follow [[HTTPS-TLS-Certificate]].
+-
+-Seeing the VIVO home page confirms the basic deployment path is working. For a service-level check, follow [[Post-Deployment-Verification]].
+-
+-## Step 5 — Delete the evaluation environment
+-
+-When you are finished, delete the evaluation resource group in the Azure portal. This removes the VM, public IP address, managed disk, and related resources, and stops further charges.
++Before deleting anything, confirm the resource group contains only disposable evaluation resources and preserve anything needed through a restorable backup. When authorized, remove that dedicated group, verify deletion completed, and review remaining resources and billing. Resources outside that group, backups and retained storage may continue to incur charges. See [Azure VM states and billing](https://learn.microsoft.com/en-us/azure/virtual-machines/states-billing).
+ 
+ ## Next steps
+ 
+-- Use [[Deploying-from-Marketplace]] for a production-oriented deployment, sizing, and security configuration.
+-- Use [[Loading-Sample-Data]] only after you decide to keep a non-production environment for further exploration.
+\ No newline at end of file
++- Review [[Configuring-VIVO#operations-backups-and-costs]] before keeping the service.
++- Use [[Loading-Sample-Data]] only on a dedicated non-production instance.
+diff --git a/SSH-Connection.md b/SSH-Connection.md
+index 21aec0dd1a97bd17b9a8dfa5a32b90c0fe645bdc..83a78351c9259d8e1fe36df3ebceb98820beaae0 100644
+--- a/SSH-Connection.md
++++ b/SSH-Connection.md
+@@ -42,7 +42,7 @@ ssh -i ~/.ssh/your-key.pem <admin-username>@<public-ip>
+ 
+ ## Get the public IP
+ 
+-After deployment, find the public IP in the Azure Portal under your resource group, or from the deployment **Outputs** tab (`publicIPAddress`).
++After deployment, find the intended SSH address in the VM's network configuration. A public IP or a deployment output named `publicIPAddress` depends on the deployment path; a private VM requires suitable network access. Verify the NSG rule allowing your administration source.
+ 
+ ---
+ 
+diff --git a/Support.md b/Support.md
+index 568d8f45f0cd418431243b09e772f04e261e5343..7d4fc1521c183f159f01872d65a404a1686ac814 100644
+--- a/Support.md
++++ b/Support.md
+@@ -14,12 +14,21 @@ For issues specific to this Azure Marketplace VM offer (deployment failures, ARM
+ - **GitHub Issues:** [https://github.com/Cotechnoe/vivo-azure-marketplace-docs/issues](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/issues)
+ 
+ When reporting an issue, please include:
++
++- The image version (for example 1.2.0), VIVO/Vitro versions and public/preview status, kept distinct
++- The configuration path actually followed (Marketplace/Custom data or direct ARM)
+ - The Azure region and VM size used
+ - The output of `sudo cloud-init status --long`
+ - Relevant log excerpts from `/var/log/vivo-first-boot.log` or `sudo journalctl -u tomcat --no-pager -n 50`
+ 
+ ---
+ 
++Review and redact all output before publication. Do not attach secrets, passwords, private keys, tokens, IP addresses, internal hostnames or personal data. `make diag` can print configuration and logs; do not paste its full output without review. Preparing a diagnostic does not authorize deletion or reinitialization.
++
++Maintenance, certificate, backup and recovery responsibilities are described in [[Configuring-VIVO#operations-backups-and-costs]]. A passed test or Marketplace certification is not a compliance or capacity guarantee.
++
++---
++
+ ## VIVO Community Support
+ 
+ For questions about VIVO configuration, ontology customization, data ingestion, or application-level behavior, the VIVO community provides several support channels:
+diff --git a/Troubleshooting.md b/Troubleshooting.md
+index c7467a9922a6370de231302817c3c738198854b5..48c27420ce72482cb0647db9056190661686c2e2 100644
+--- a/Troubleshooting.md
++++ b/Troubleshooting.md
+@@ -4,8 +4,8 @@
+ 
+ Common issues encountered when deploying and running VIVO on Azure Marketplace.
+ 
+-> **Run the automated diagnostic first.** The `make diag` command checks all services, firewall rules, TLS certificate, Solr, SPARQL endpoint, and logs in a single pass from your workstation.
+-> → See [[Post-Deployment-Verification#automated-diagnostic|Automated Diagnostic]] for setup and usage.
++> **Run the automated diagnostic first.** The `make diag` command probes services, the guest firewall, certificate expiry, Solr, SPARQL status and recent logs; the probes run from your workstation. Review their limits in the verification guide.
++> → See [[Automated Diagnostic|Post-Deployment-Verification#automated-diagnostic]] for setup and usage.
+ 
+ ---
+ 
+@@ -17,9 +17,9 @@ VIVO_LANGUAGES: unbound variable
+ cloud-final.service: Failed
+ ```
+ 
+-**Cause:** The VM was created outside of the Marketplace deployment template — the required configuration parameters were never injected.
++**Historical context:** Earlier initialization scripts could fail on missing settings. The 1.2.0 implementation supplies fallbacks; this error alone does not identify the deployment method. Confirm the image version, applied configuration and failing script in the logs.
+ 
+-**Fix:** Delete the VM and redeploy from the Azure Marketplace offer page using the standard deployment template.
++**Action:** Inspect cloud-init status and the initialization log, then consult the publisher before attempting recovery. Preserve existing data and configuration. Do not delete a VM or reset its first-boot marker as a generic fix. See [[Deploying-from-Marketplace]] and [[Configuring-VIVO]].
+ 
+ ---
+ 
+@@ -50,9 +50,9 @@ ssh -i ~/.ssh/your-key.pem azureuser@<public-ip>
+ "message": "The specified disk size 64 GB is less than the size of the corresponding disk in the VM image: 256 GB."
+ ```
+ 
+-**Cause:** The deployment template from a previous offer version set a disk size smaller than the image requires. This has been fixed.
++**Cause:** The deployment template from a previous offer version set a disk size smaller than the image requires. This historical example does not establish the current public offer or its disk requirement.
+ 
+-**Fix:** Redeploy using the current offer version from the Azure Marketplace.
++**Action:** Check the selected image's OS disk requirement and remove an undersized override from the deployment configuration. Do not replace an existing VM or discard data without a recovery plan and authorization.
+ 
+ ---
+ 
+@@ -72,9 +72,9 @@ ssh -i ~/.ssh/your-key.pem azureuser@<public-ip>
+ 
+ ## VIVO is accessible but shows default example.org namespace
+ 
+-**Cause:** Deployment parameters (`vivoNamespace`, `vivoAdminEmail`) were left at their default values.
++**Possible cause:** The intended settings were not supplied or applied before initialization. The image's fallback namespace is an example, not an institutional configuration.
+ 
+-**Fix:** Redeploy with your institution's values, or manually update `runtime.properties`. See [[Configuring-VIVO]].
++**Action:** Compare initial settings with the active `runtime.properties`. If data has already been loaded, changing the configured namespace does not migrate its identifiers. See [[Configuring-VIVO]] before changing it.
+ 
+ ---
+ 
+@@ -82,7 +82,7 @@ ssh -i ~/.ssh/your-key.pem azureuser@<public-ip>
+ 
+ **Symptom:** Firefox/Chrome shows "Potential Security Risk" or "Your connection is not private" for the FQDN.
+ 
+-**Cause:** certbot failed to obtain a Let's Encrypt certificate during first boot.
++**Possible causes:** No FQDN was supplied, the Certbot request failed, or the served certificate is expired, untrusted or for another name. The 1.2.0 tests used a self-signed certificate; they did not establish browser trust.
+ 
+ **Diagnose:**
+ ```bash
+@@ -108,7 +108,7 @@ sudo tail -100 /opt/tomcat/logs/catalina.out
+ 
+ **Symptom:**
+ 
+-The VIVO Capability Map at `/vis/capabilitymap` loads its frame but shows no nodes, even after sample data has been loaded and Solr contains 400+ documents. The browser console shows:
++The VIVO Capability Map at `/vis/capabilitymap` loads its frame but shows no nodes, even after sample data has been loaded and indexed. The browser console shows:
+ 
+ ```
+ La ressource à l'adresse /visualizationAjax... a été bloquée en raison d'un type MIME
+@@ -124,14 +124,14 @@ The resource at /visualizationAjax... was blocked due to MIME type ("text/html")
+ 
+ **Cause:**
+ 
+-VIVO's `/visualizationAjax` endpoint returns `Content-Type: text/html` for all responses, including JSONP (where the body is JavaScript of the form `ipretResults({...})`). Nginx applies `X-Content-Type-Options: nosniff` globally. Browsers comply with the nosniff directive and block execution of the JSONP callback, resulting in an empty map.
++In the affected historical deployments, VIVO's `/visualizationAjax` endpoint returned `Content-Type: text/html` for all responses, including JSONP (where the body is JavaScript of the form `ipretResults({...})`). Nginx applies `X-Content-Type-Options: nosniff` globally. Browsers comply with the nosniff directive and block execution of the JSONP callback, resulting in an empty map.
+ 
+ **Step 1 — Verify the upstream data is present**
+ 
+ Before fixing nginx, confirm the backend is returning data:
+ 
+ ```bash
+-curl -sk "https://<fqdn>/visualizationAjax?vis=capabilitymap&query=Rhetoric&callback=ipretResults&noCacheIE=1" | head -c 200
++curl -sS "https://<fqdn>/visualizationAjax?vis=capabilitymap&query=Rhetoric&callback=ipretResults&noCacheIE=1" | head -c 200
+ ```
+ 
+ Expected output (JSONP):
+@@ -139,21 +139,21 @@ Expected output (JSONP):
+ ipretResults({"researchers":[...], "researchAreas":[...]})
+ ```
+ 
+-If the output is empty HTML, the sample data was not loaded — see [[Loading-Sample-Data]].
++If the output is HTML, check status, authentication and application errors before concluding that data is missing — see [[Loading-Sample-Data]].
+ 
+ **Step 2 — Check the Content-Type header**
+ 
+ ```bash
+-curl -sk -I "https://<fqdn>/visualizationAjax?vis=capabilitymap&query=Rhetoric&callback=ipretResults&noCacheIE=1" \
++curl -sS -I "https://<fqdn>/visualizationAjax?vis=capabilitymap&query=Rhetoric&callback=ipretResults&noCacheIE=1" \
+   | grep -i content-type
+ ```
+ 
+-- Returns `text/html` → nginx fix required (see Step 3)
++- Returns `text/html` → inspect the response and active configuration before choosing a fix (Step 3)
+ - Returns `application/javascript` → nginx is already fixed, check browser console for other errors
+ 
+-**Step 3 — Apply the nginx fix**
++**Step 3 — Review the historical nginx workaround**
+ 
+-Add a dedicated `location /visualizationAjax {}` block inside **each** `server { listen 443 ... }` block in `/etc/nginx/conf.d/vivo.conf`:
++Image 1.2.0 already includes the workaround below. For an affected older instance, inspect and back up the active NGINX configuration first. Do not add a duplicate location. With an administrator, consider a dedicated `location /visualizationAjax {}` block inside the relevant `server { listen 443 ... }` block in `/etc/nginx/conf.d/vivo.conf`:
+ 
+ ```nginx
+ # JSONP fix — VIVO returns text/html for /visualizationAjax
+@@ -173,7 +173,7 @@ location /visualizationAjax {
+ }
+ ```
+ 
+-> **Why no `X-Content-Type-Options: nosniff` here?** When a `location` block defines any `add_header` directive, it **replaces** all `add_header` directives inherited from parent blocks (nginx inheritance rule). The block above intentionally omits `nosniff` to allow the JSONP `Content-Type: application/javascript` to be accepted by the browser. All other security headers (HSTS, X-Frame-Options, Referrer-Policy) are explicitly repeated to preserve the security posture.
++> **Historical workaround:** The block reproduces the image's JavaScript MIME override and local security headers. Removing `nosniff` is not generally required when the correct MIME type is served. Under the standard [NGINX header inheritance rules](https://nginx.org/en/docs/http/ngx_http_headers_module.html#add_header), local `add_header` directives affect inheritance; check the installed version and active configuration rather than copying this as a general security policy.
+ 
+ After editing, validate and reload nginx:
+ 
+@@ -183,4 +183,4 @@ sudo nginx -t && sudo systemctl reload nginx
+ 
+ Re-run the Step 2 check — `content-type: application/javascript; charset=UTF-8` confirms the fix is active.
+ 
+-> This fix is included in the Packer image template (`packer/provisioners/04-configure-nginx.sh`) and the Docker nginx config (`docker/nginx/vivo.conf`) as of commit `f92ba3f`. New deployments from those sources are not affected.
++> The workaround is present in image 1.2.0. Its presence is not a functional validation of every visualization; confirm the response and browser behavior for your data.
+diff --git a/fr_Configuring-VIVO.md b/fr_Configuring-VIVO.md
+index 00de8cf2b9a94f3853c186b57b22f43e683e7eb5..cfe7efe8740550ba33055a2b2d27a78b8e5acb50 100644
+--- a/fr_Configuring-VIVO.md
++++ b/fr_Configuring-VIVO.md
+@@ -2,128 +2,88 @@
+ 
+ > 🇬🇧 This page is also available in English: [[Configuring-VIVO]]
+ 
+-Dans le modèle ARM de référence, cloud-init écrit `/etc/vivo/install.conf` et le script de premier démarrage applique ses paramètres à `runtime.properties`. L'assistant et l'image actuellement publiés n'ont pas été vérifiés indépendamment par rapport à ce modèle.
+-
+-Pour Marketplace, utilisez les champs proposés par l'assistant; ne remplacez pas un bloc **Données personnalisées** généré par le modèle par un second bloc. Pour un déploiement direct du modèle ARM de référence, fournissez ses paramètres au modèle; il génère son propre `customData`. D'autres modèles ARM ou images peuvent se comporter différemment. Consultez [[fr_Deploying-from-Marketplace]].
++L'image **1.2.0** contient la pile applicative ; les réglages institutionnels et l'exploitation continue relèvent de l'administration. Consultez [[fr_Deploying-from-Marketplace]] pour la configuration initiale et la distinction entre Custom data Marketplace et déploiement ARM direct.
+ 
+ ---
+ 
+-## Fichier de configuration principal
++## Paramètres initiaux et configuration active
+ 
+-```
+-/etc/vivo/install.conf
+-```
+-
+-Exemple de valeurs du modèle de référence; le contenu réel dépend de la version déployée :
+-
+-```ini
+-VIVO_NAMESPACE=http://vivo.myuniversity.edu/individual/
+-VIVO_ADMIN_EMAIL=vivo_root@myuniversity.edu
+-VIVO_LANGUAGES=en_US
+-VIVO_LANGUAGE_FILTER=false
+-TOMCAT_HEAP_MIN=2g
+-TOMCAT_HEAP_MAX=6g
+-DATA_DISK_SIZE_GB=128
+-ADMIN_USERNAME=azureuser
+-```
++Au premier démarrage, l'image lit `/etc/vivo/install.conf`, initialise le disque de données et applique namespace, courriel administrateur, langues et tas Tomcat. Elle crée ensuite `/etc/vivo/.first-boot-done` ; les exécutions suivantes ignorent l'initialisation lorsque ce marqueur existe.
+ 
+----
++Modifier `install.conf` après cette étape n'applique **pas** automatiquement les changements. Ne supprimez pas le marqueur et ne relancez pas cloud-init pour reconfigurer une instance contenant des données. Examinez et modifiez plutôt les fichiers actifs :
+ 
+-## Emplacement de runtime.properties
++| Fichier | Rôle |
++| --- | --- |
++| `/data/vivo/home/config/runtime.properties` | Namespace VIVO, paramètres du compte root et langues |
++| `/opt/tomcat/bin/setenv.sh` | `CATALINA_OPTS` de Tomcat, dont `-Xms` et `-Xmx` |
++| `/etc/nginx/conf.d/vivo.conf` | Site NGINX de l'image ; vérifier la configuration active, que Certbot ou un administrateur peut modifier |
+ 
+-Le fichier de configuration principal de VIVO se trouve dans le répertoire home de VIVO :
++Avant une modification, conservez une copie, prévoyez une fenêtre de maintenance adaptée et un plan de récupération. Par exemple :
+ 
+-```
+-/data/vivo/home/config/runtime.properties
++```bash
++sudo cp -a /data/vivo/home/config/runtime.properties \
++  /data/vivo/home/config/runtime.properties.bak.$(date +%Y%m%d%H%M%S)
++sudoedit /data/vivo/home/config/runtime.properties
+ ```
+ 
+-> Il s'agit du chemin `vivo_home_dir/config/runtime.properties` référencé dans la [documentation officielle VIVO](https://wiki.lyrasis.org/display/VIVODOC115x/Internationalization).
+-
+----
++Cette commande copie seulement la configuration ; elle ne sauvegarde ni les magasins RDF actifs ni l'instance complète.
+ 
+ ## Modifier le namespace VIVO
+ 
+-Le namespace est un identifiant permanent pour les entités RDF de votre institution.
+-**Il doit être défini correctement avant d'ajouter des données.**
++Choisissez le namespace **avant de charger les données**. Dans `runtime.properties`, assurez-vous d'avoir une seule entrée active, en remplaçant l'exemple par l'URI institutionnelle :
+ 
+-Pour le mettre à jour :
+-
+-```bash
+-sudo sed -i 's|^Vitro.defaultNamespace.*|Vitro.defaultNamespace = http://vivo.myuniversity.edu/individual/|' \
+-  /data/vivo/home/config/runtime.properties
+-sudo systemctl restart tomcat
++```properties
++Vitro.defaultNamespace = https://vivo.example.org/individual/
+ ```
+ 
+----
++Une modification ultérieure ne réécrit pas les identifiants RDF existants et ne migre pas les données. Planifiez séparément tout changement sur une instance peuplée, avec récupération testée. Redémarrez Tomcat après une modification approuvée et vérifiez le namespace prévu sur de nouvelles données de test.
+ 
+ ## Mot de passe administrateur VIVO
+ 
+-Consultez [[fr_Post-Deployment-Verification#première-connexion-de-ladministrateur-vivo]] pour la procédure de première connexion, qui dépend de la version. Confirmez les instructions de votre image déployée et changez immédiatement tout mot de passe initial ou par défaut. Ne considérez pas la page d'administration SPARQL comme une procédure de réinitialisation du mot de passe.
++Consultez [[fr_Post-Deployment-Verification#première-connexion-de-ladministrateur-vivo]] pour la première connexion et les limites des essais archivés. Les comptes SSH et Web VIVO sont distincts. N'utilisez pas une page SPARQL publique comme procédure de réinitialisation de mot de passe.
+ 
+----
++Modifier `rootUser.emailAddress` ne renomme pas un compte et ne réinitialise pas son mot de passe. Au démarrage, Vitro peut créer un autre compte root si aucun compte ne correspond au courriel configuré. Examinez les comptes administrateurs existants et limitez l'accès avant ce changement ; vérifiez et sécurisez le compte obtenu avant de rouvrir l'accès.
+ 
+ ## Certificat TLS (Let's Encrypt)
+ 
+-Le comportement de Let's Encrypt dépend de la version de l'image et du parcours de déploiement. Lorsque le provisionnement automatique est configuré pour l'image, le premier démarrage tente de demander un certificat pour le FQDN du déploiement; l'émission et le délai ne sont pas garantis. Consultez [[fr_Deploying-from-Marketplace]] pour connaître la méthode prise en charge afin de configurer le FQDN de votre déploiement.
+-
+-**Prérequis :**
+-- Le FQDN doit résoudre vers l'adresse IP publique de la VM avant le défi ACME HTTP-01.
+-- Le port 80 doit être accessible depuis Internet (le modèle ARM ajoute cette règle NSG automatiquement).
+-- Si la demande échoue, le certificat de secours de l'image peut rester actif. Vérifiez le certificat servi pour le FQDN avant d'entrer des identifiants.
+-
+-> Vérifiez le mécanisme de renouvellement et son état actif pour la version d'image utilisée. Consultez [[fr_HTTPS-TLS-Certificate]] pour les étapes de vérification et de récupération.
+-
+----
++L'image démarre avec un certificat autosigné. Le premier démarrage ne tente Certbot que si `VIVO_FQDN` est renseigné et si Certbot est disponible ; l'émission exige encore un DNS et la validation ACME. Modifier cette valeur après l'initialisation ne demande pas de certificat. Consultez [[fr_HTTPS-TLS-Certificate]] pour l'émission manuelle, la vérification de confiance et le renouvellement.
+ 
+ ## Internationalisation (i18n)
+ 
+-VIVO supporte deux modes de langue, contrôlés par `VIVO_LANGUAGES` et `VIVO_LANGUAGE_FILTER` dans `/etc/vivo/install.conf`.
+-
+-### Paramètres de configuration
++Les paramètres initiaux `VIVO_LANGUAGES` et `VIVO_LANGUAGE_FILTER` sont appliqués à `runtime.properties` au premier démarrage. Ensuite, modifiez directement les propriétés actives. Sélectionner une langue ne traduit pas les données RDF institutionnelles et n'installe pas les traductions manquantes.
+ 
+-| Variable | Défaut | Description |
+-|----------|--------|-------------|
+-| `VIVO_LANGUAGES` | `en_US` | Liste de codes de locale séparés par des virgules (ex. : `en_US,fr_CA`) |
+-| `VIVO_LANGUAGE_FILTER` | `false` | Filtrer les données RDF selon la langue active (`true` / `false`) |
++### Mode 1 — Locale unique
+ 
+-### Mode 1 — Locale unique (une valeur dans `VIVO_LANGUAGES`)
+-
+-L'interface est verrouillée sur la locale spécifiée — aucun sélecteur de langue n'est affiché.
++Dans `runtime.properties`, assurez-vous que ces entrées sont actives une seule fois ; supprimez ou commentez toute entrée active `languages.selectableLocales` :
+ 
+ ```properties
+-# /data/vivo/home/config/runtime.properties (défini automatiquement au premier démarrage)
+ languages.forceLocale = en_US
+ RDFService.languageFilter = false
+ ```
+ 
+-Utilisez ce mode lorsque votre instance sert un public unilingue.
+-
+-### Mode 2 — Multi-locale (deux valeurs ou plus dans `VIVO_LANGUAGES`)
++### Mode 2 — Multi-locale
+ 
+-Un sélecteur de langue apparaît dans l'interface VIVO. La première locale de la liste est celle par défaut.
++Assurez-vous que ces entrées sont actives une seule fois ; supprimez ou commentez toute entrée active `languages.forceLocale` :
+ 
+ ```properties
+-# /data/vivo/home/config/runtime.properties (défini automatiquement au premier démarrage)
+ languages.selectableLocales = en_US, fr_CA
+ RDFService.languageFilter = true
+ ```
+ 
+-Utilisez ce mode lorsque vos données RDF contiennent des valeurs `rdfs:label` dans plusieurs langues et que vous souhaitez permettre aux utilisateurs de basculer entre elles.
++La première locale est celle par défaut. Le sélecteur et les traductions de l'interface dépendent des ressources présentes. Le filtre constitue un choix distinct ; gardez-le à `false` sauf si vous souhaitez une sélection des valeurs RDF selon la langue.
+ 
+ ### Filtre de langue RDF (`RDFService.languageFilter`)
+ 
+-Lorsqu'il est activé (`true`), VIVO filtre les triplets RDF pour n'afficher que les valeurs correspondant à la langue active de l'utilisateur. Si aucune correspondance exacte n'est trouvée, VIVO utilise la balise de langue la plus proche.
++Avec `true`, Vitro sélectionne les littéraux selon les préférences de langue et les règles de repli. Il ne masque **pas** simplement toutes les valeurs sans langue et ne garantit pas non plus leur affichage systématique : la sélection dépend aussi des valeurs alternatives du même sujet et de la même propriété. Consultez [l'implémentation du filtre dans la révision Vitro embarquée](https://github.com/vivo-project/Vitro/blob/c6fdb5091b9026f57901c97cfec88223a63cff47/api/src/main/java/edu/cornell/mannlib/vitro/webapp/rdfservice/filter/LanguageFilterModel.java).
+ 
+-Définissez-le à `false` si vos données ne sont pas systématiquement étiquetées avec des littéraux de langue — les chaînes non étiquetées seront toujours affichées quelle que soit la locale.
+-
+-> **Note :** Les codes de locale utilisent un **tiret bas** dans `runtime.properties` (`fr_CA`) mais un **tiret** dans les fichiers de données RDF (`@fr-CA`). Il s'agit du comportement standard de l'i18n Java.
++Les codes de locale utilisent un tiret bas dans les réglages (`fr_CA`) et les balises de langue RDF un tiret (`@fr-CA`). Vérifiez des données représentatives avec et sans langue dans chaque locale avant d'activer le filtre pour les données institutionnelles.
+ 
+ ### Locales supportées
+ 
+-Cette image Marketplace est livrée avec des packs de langue pour :
++Les codes suivants identifient ces langues lorsque leurs ressources de traduction sont installées. Ce tableau ne certifie ni l'exhaustivité ni la présence de chaque traduction dans l'image 1.2.0 :
+ 
+ | Code de locale | Langue |
+-|----------------|--------|
++| --- | --- |
+ | `en_US` | Anglais (États-Unis) |
+ | `en_CA` | Anglais (Canada) |
+ | `fr_CA` | Français (Canada) |
+@@ -133,42 +93,26 @@ Cette image Marketplace est livrée avec des packs de langue pour :
+ | `ru_RU` | Russe |
+ | `sr_Latn_RS` | Serbe (latin, Serbie) |
+ 
+-> Source : [vivo-project/VIVO-languages](https://github.com/vivo-project/VIVO-languages) et [vivo-project/Vitro i18n](https://github.com/vivo-project/Vitro/tree/main/webapp/src/main/webapp/i18n).
+-
+-Pour d'autres locales, consultez la page [Créer de nouveaux fichiers de langue](https://wiki.lyrasis.org/display/VIVODOC115x/Internationalization) dans la documentation officielle VIVO.
+-
+-### Modifier les paramètres de langue après le déploiement
++### Appliquer et vérifier les langues
+ 
+-Modifiez directement `runtime.properties` sur la VM :
+-
+-**Basculer vers une locale unique :**
++Utilisez l'éditeur comme indiqué plus haut pour ajouter les propriétés absentes ou remplacer les entrées existantes, y compris celles commentées avec espaces. Évitez les clés actives en double ; `languages.forceLocale` prévaut sur les locales sélectionnables. Redémarrez ensuite Tomcat dans la fenêtre de maintenance prévue :
+ 
+ ```bash
+-sudo sed -i \
+-  -e 's|^languages\.selectableLocales|#languages.selectableLocales|' \
+-  -e 's|^#\?languages\.forceLocale.*|languages.forceLocale = en_US|' \
+-  -e 's|^RDFService\.languageFilter.*|RDFService.languageFilter = false|' \
+-  /data/vivo/home/config/runtime.properties
+ sudo systemctl restart tomcat
+-```
+-
+-**Basculer vers le mode multi-locale :**
+-
+-```bash
+-sudo sed -i \
+-  -e 's|^languages\.forceLocale|#languages.forceLocale|' \
+-  -e 's|^#\?languages\.selectableLocales.*|languages.selectableLocales = en_US, fr_CA|' \
+-  -e 's|^RDFService\.languageFilter.*|RDFService.languageFilter = true|' \
++systemctl is-active tomcat
++grep -E '^[[:space:]]*(languages\.(forceLocale|selectableLocales)|RDFService\.languageFilter)[[:space:]]*=' \
+   /data/vivo/home/config/runtime.properties
+-sudo systemctl restart tomcat
+ ```
+ 
+-**Vérifier les paramètres i18n actuels :**
++Vérifiez l'interface et des données représentatives après démarrage ; l'état du service ne prouve pas à lui seul le comportement linguistique.
+ 
+-```bash
+-grep -E "languageFilter|forceLocale|selectableLocales" \
+-  /data/vivo/home/config/runtime.properties
+-```
++## Exploitation, sauvegardes et coûts
++
++- **Accès et données :** sécuriser les comptes administrateurs, examiner l'accès SPARQL et les règles NSG/UFW effectives, décider quelles informations de recherche peuvent être publiques. L'ingestion externe et les intégrations d'identifiants nécessitent configuration ou développement.
++- **Maintenance :** planifier les mises à jour OS et applicatives, surveiller journaux, espace disque et services. L'image 1.2.0 suit la série de noyau Azure LTS 6.8 par une politique APT ; examiner cette politique avec l'éditeur avant de changer de série. Un contrôle de sécurité au build ne constitue pas une assurance continue contre les vulnérabilités.
++- **Sauvegardes et récupération :** prévoir des sauvegardes cohérentes avec l'application pour les magasins RDF VIVO, VIVO home/configuration, les données et réglages Solr, ainsi que les réglages hors `/data` comme Tomcat et NGINX. Protéger clés de certificat et autres secrets. Copier un répertoire TDB actif n'est pas une sauvegarde validée. Tester la récupération sur une instance isolée et définir perte de données et délai de récupération tolérés. Les essais archivés de l'image n'établissent ni politique de sauvegarde automatique ni service de haute disponibilité.
++- **Coûts :** distinguer le tarif du plan de ceux de la VM Azure, des disques, du réseau, des sauvegardes et des services externes. Arrêter l'OS invité n'équivaut pas à désallouer la VM ; disques et réseau peuvent encore être facturés après désallocation. Consultez les [états et la facturation des VM Azure](https://learn.microsoft.com/fr-fr/azure/virtual-machines/states-billing).
++- **Responsabilités institutionnelles :** évaluer emplacement des données, sauvegardes, réplication, flux sortants, télémétrie et services externes selon vos politiques. Un déploiement dans votre abonnement ne prouve pas à lui seul résidence exclusive des données, absence de télémétrie ou conformité réglementaire. Une mise à jour d'image ne migre pas automatiquement les données ou la configuration d'une VM existante.
+ 
+ ---
+ 
+diff --git a/fr_Deploying-from-Marketplace.md b/fr_Deploying-from-Marketplace.md
+index 90d779be55c007cd49f1c934e92f582172beba81..338daa7b66637473b5f7c0e44bc395b03b1109aa 100644
+--- a/fr_Deploying-from-Marketplace.md
++++ b/fr_Deploying-from-Marketplace.md
+@@ -2,168 +2,96 @@
+ 
+ > 🇬🇧 This page is also available in English: [[Deploying-from-Marketplace]]
+ 
+-Cette page décrit les champs de déploiement du modèle de référence. L'assistant Marketplace réel et sa correspondance avec ce modèle n'ont **pas** été vérifiés indépendamment pour l'image actuellement publiée. Les champs, libellés et valeurs par défaut peuvent varier; confirmez-les dans l'assistant de l'offre et de la version sélectionnées avant le déploiement.
++Préparez un déploiement de l'image **1.2.0**, avec Ubuntu **24.04 LTS** et VIVO/Vitro **1.16.0**. Consultez [[fr_Home#image-120--statut-et-vérifications]] pour la distinction datée entre l'offre publique et la préversion.
+ 
+-L'offre expose une image de VM Marketplace, tandis que [Microsoft documente `createUiDefinition.json` pour les interfaces portail des applications managées](https://learn.microsoft.com/fr-fr/azure/azure-resource-manager/managed-applications/create-uidefinition-overview). L'existence d'une définition d'interface de référence ne démontre pas que l'offre VM publiée l'utilise ou qu'elle utilise le modèle ARM associé. Considérez les tableaux de champs ci-dessous comme une référence, non comme une description confirmée de l'assistant réel.
+-
+-> **Note — configuration VIVO :** Le modèle de référence génère son propre `customData`; ne le remplacez pas par un second fichier cloud-init via **Avancé → Données personnalisées**. Si l'assistant réel ne propose pas les champs nécessaires ou se comporte différemment, arrêtez et contactez l'éditeur plutôt que de supposer que ces instructions s'appliquent.
+-
+----
+-
+-## Prérequis
+-
+-Vous devez disposer d'une clé publique SSH avant de commencer. Consultez [[fr_SSH-Connection]] pour en générer une.
+-
+----
+-
+-## Étape 1 — Paramètres de base
+-
+-| Champ | Description | Exemple |
+-|-------|-------------|---------|
+-| **Nom d'utilisateur administrateur** | Identifiant SSH pour la VM | `azureuser` |
+-| **Clé publique SSH** | Collez votre clé publique OpenSSH | `ssh-ed25519 AAAA...` |
+-
+----
+-
+-## Étape 2 — Configuration de la VM
+-
+-| Champ | Description | Recommandé |
+-|-------|-------------|------------|
+-| **Taille de la VM** | Capacité de calcul | `Standard_D4s_v3` (production) |
+-| **Taille du disque de données** | Stockage pour les données VIVO (TDB1, Solr, journaux) | `128 Go` minimum / `512 Go` pour la production |
+-| **Adresse IP SSH autorisée** | Plage CIDR pour l'accès SSH | Votre IP, ex. `203.0.113.42/32` |
+-
+-> Définir l'adresse IP SSH à `*` autorise l'accès depuis n'importe quelle IP — acceptable pour les tests uniquement.
+-
+-> ⚠️ **Recommandation minimale Lyrasis :** `Standard_D4s_v3` (16 Go de RAM, 4 vCPU) est le minimum recommandé pour la production. `Standard_D2s_v3` (8 Go de RAM) convient uniquement au développement et aux tests. Consultez le [guide d'installation VIVO de Lyrasis](https://wiki.lyrasis.org/display/VIVODOC115x/Installing+VIVO) et le tableau de dimensionnement du tas à l'Étape 3.
++Ce guide décrit le parcours prévu **Avancé → Données personnalisées (Custom data)** de l'image VM 1.2.0, d'après son implémentation de premier démarrage. Les essais archivés déployaient l'image exacte depuis la galerie ; ils ne valident pas l'assistant Marketplace complet. Confirmez l'image sélectionnée et la présence du champ Custom data dans le déploiement réel. Si l'assistant diffère, contactez l'éditeur avant de créer la VM.
+ 
+ ---
+ 
+-## Ports réseau
+-
+-Le NSG (Network Security Group) Azure est automatiquement configuré lors du déploiement avec les règles entrantes suivantes :
+-
+-| Port | Protocole | Service | Règle NSG | Notes |
+-|------|-----------|---------|-----------|-------|
+-| 443 | TCP | Interface web VIVO (nginx) | **Autoriser** | Accès public |
+-| 80 | TCP | Redirection HTTP → HTTPS (nginx) | **Autoriser** | Redirigé automatiquement vers 443 |
+-| 22 | TCP | Administration SSH | **Autoriser** | Restreint à l'IP source définie à l'Étape 2 |
+-| 8983 | TCP | Interface admin Solr | **Refuser** | Bloqué au niveau NSG — interne uniquement |
+-| 8080 | TCP | Tomcat (interne) | **Refuser** | Bloqué au niveau NSG — reverse proxy nginx uniquement |
+-
+-> ⚠️ Les ports 8080 (Tomcat) et 8983 (Solr) sont **explicitement bloqués** au niveau NSG *et* par le pare-feu de la VM (UFW). N'ajoutez pas de règles NSG pour ouvrir ces ports — ils ne sont pas conçus pour un accès externe direct.
+-
+----
++## Avant le déploiement
+ 
+-## Étape 3 — Configuration VIVO
++- Préparez les clés SSH et vérifiez l'identité de la VM : consultez [[fr_SSH-Connection]]. Le compte SSH est distinct du compte Web VIVO.
++- Choisissez un abonnement Azure, une région et un groupe de ressources adaptés à vos politiques. Vérifiez le tarif du plan et les coûts d'infrastructure Azure.
++- Dimensionnez CPU, RAM et disques selon vos données, l'indexation et l'usage prévu. Les contrôles réalisés n'établissent ni taille minimale de VM/disque en production ni capacité de charge. Gardez de la mémoire pour Solr, l'OS et les autres processus lors du réglage du tas Tomcat.
++- Choisissez le namespace RDF permanent avant d'ajouter des données institutionnelles. Modifier les identifiants ensuite exige une migration planifiée des données, pas seulement un réglage de configuration.
+ 
+-Dans la définition de référence, la section **VIVO Configuration** transmet ces valeurs au modèle ARM. Pour ce modèle, cloud-init écrit `/etc/vivo/install.conf` et lance le script de premier démarrage. La correspondance avec l'offre publiée reste à vérifier.
++## Étape 1 — Sélectionner et configurer la VM
+ 
+-| Champ | Recommandation |
+-|-------|----------------|
+-| **VIVO RDF Namespace** | Définissez l'URI RDF définitive, par exemple `https://vivo.monuniversite.edu/individual/`. Elle doit commencer par `http://` ou `https://` et se terminer par `/`. |
+-| **VIVO Administrator Email** | Utilisez une adresse institutionnelle contrôlée. |
+-| **VIVO Language(s)** | Sélectionnez les langues de l'interface, par exemple `en_CA` et `fr_CA`. |
+-| **Enable RDF Language Filter** | Laissez désactivé initialement, sauf si les données RDF sont correctement étiquetées par langue. |
++Ouvrez l'[offre VIVO](https://marketplace.microsoft.com/fr-fr/product/cotechnoe.vivo-research-profiles?tab=Overview). Confirmez le plan et la version d'image exacte. La version de l'application VIVO ou le numéro affiché dans la fiche n'est pas la version d'image ; ne supposez pas qu'une sélection latest non précisée correspond à la 1.2.0.
+ 
+-> **Important :** l'espace de noms RDF ne peut pas être modifié après le chargement de données réelles. Définissez-le correctement avant le premier déploiement.
++Dans l'assistant de création de VM, configurez l'administrateur SSH, la clé publique SSH, la taille, les disques et le réseau. Laissez Azure reprendre la taille de disque OS exigée par l'image sélectionnée plutôt que de forcer un disque plus petit.
+ 
+-> Lorsque le filtre de langue RDF est activé, VIVO n'affiche que le contenu étiqueté avec l'une des langues sélectionnées et masque le contenu non étiqueté.
++Pour un stockage de données séparé, attachez un **nouveau disque de données vide au LUN 0**. L'initialisation 1.2.0 monte ce disque sur `/data` et formate un disque non formaté. N'attachez pas un disque contenant des données à conserver pour expérimenter l'initialisation. Vérifiez le montage final avec [[fr_Post-Deployment-Verification]].
+ 
+-### Codes de langue supportés
++Vérifiez les règles NSG et du pare-feu invité effectives :
+ 
+-| Code | Langue |
+-|------|-------|
+-| `en_US` | Anglais — États-Unis |
+-| `en_CA` | Anglais — Canada |
+-| `fr_CA` | Français — Canada |
+-| `de_DE` | Allemand |
+-| `es` | Espagnol |
+-| `pt_BR` | Portugais — Brésil |
+-| `ru_RU` | Russe |
+-| `sr_Latn_RS` | Serbe — Latin |
++| Port | Usage | Décision nécessaire |
++| --- | --- | --- |
++| 443/TCP | VIVO via NGINX | Autoriser seulement les clients Web prévus. |
++| 80/TCP | Redirection HTTP ; défi de certificat HTTP-01 | Autoriser l'autorité de certification si vous utilisez la procédure NGINX/Let's Encrypt. `/health` peut répondre HTTP 200 sans tester VIVO. |
++| 22/TCP | SSH | Limiter aux sources d'administration de confiance ; éviter l'accès sans restriction. |
++| 8080/TCP | Tomcat | Garder privé ; la configuration UFW de l'image refuse l'accès externe. |
++| 8983/TCP | Solr | Garder privé ; la configuration UFW de l'image refuse l'accès externe. |
+ 
+-### Valeurs par défaut du modèle
++Ne supposez pas que le déploiement publié crée un NSG ou un nom DNS particulier parce que le modèle ARM de référence le fait.
+ 
+-Les valeurs suivantes ne s'appliquent que lorsqu'un déploiement ARM omet le paramètre correspondant. Les utilisateurs Marketplace doivent renseigner les champs VIVO dans l'assistant :
++## Étape 2 — Fournir la configuration VIVO initiale
+ 
+-| Paramètre | Valeur par défaut |
+-|-----------|------------------|
+-| `VIVO_NAMESPACE` | `http://vivo.example.org/individual/` |
+-| `VIVO_ADMIN_EMAIL` | `vivo_root@example.org` |
+-| `VIVO_LANGUAGES` | `en_US` |
+-| `VIVO_LANGUAGE_FILTER` | `false` |
+-| `TOMCAT_HEAP_MIN` | Calculé selon la taille de VM sélectionnée |
+-| `TOMCAT_HEAP_MAX` | Calculé selon la taille de VM sélectionnée |
++Pour le parcours Custom data de cette image, placez le cloud-config suivant dans **Avancé → Données personnalisées** avant de créer la VM. Remplacez le namespace et le courriel d'exemple. N'y mettez ni mots de passe ni clés privées. Consultez [Custom data Azure](https://learn.microsoft.com/fr-fr/azure/virtual-machines/custom-data) pour le cycle de provisionnement et ses restrictions.
+ 
+-> Consultez [[fr_Configuring-VIVO]] pour les instructions de reconfiguration post-déploiement.
+-
+-### Dimensionnement du tas Tomcat selon la taille de VM
++```yaml
++#cloud-config
++write_files:
++  - path: /etc/vivo/install.conf
++    owner: root:root
++    permissions: '0600'
++    content: |
++      VIVO_NAMESPACE='https://vivo.example.org/individual/'
++      VIVO_ADMIN_EMAIL='admin@example.org'
++      VIVO_LANGUAGES='en_US,fr_CA'
++      VIVO_LANGUAGE_FILTER='false'
++      TOMCAT_HEAP_MIN='2g'
++      TOMCAT_HEAP_MAX='6g'
++      VIVO_FQDN=''
++```
+ 
+-Le modèle calcule `TOMCAT_HEAP_MIN` et `TOMCAT_HEAP_MAX` selon la RAM de la VM sélectionnée. La formule utilisée est :
+-- `TOMCAT_HEAP_MIN = RAM / 8`
+-- `TOMCAT_HEAP_MAX = RAM × 3/8`
++L'image programme déjà `/usr/local/bin/vivo-first-boot.sh` par cloud-init. Ce bloc écrit les paramètres que ce script lit ; il ne réinstalle pas la pile applicative.
+ 
+-| Taille de VM | RAM | `TOMCAT_HEAP_MIN` | `TOMCAT_HEAP_MAX` | Note |
+-|---|---|---|---|---|
+-| `Standard_D2s_v3` | 8 Go | `1g` | `3g` | ⚠️ En dessous du minimum Lyrasis — tests uniquement |
+-| `Standard_D4s_v3` / `D4as_v4` | 16 Go | `2g` | `6g` | ✅ Minimum Lyrasis recommandé |
+-| `Standard_D8s_v3` / `D8as_v4` | 32 Go | `4g` | `12g` | ✅ Recommandé pour la production |
+-| `Standard_D16s_v3` | 64 Go | `8g` | `24g` | ✅ Grandes collections |
++| Paramètre | Signification |
++| --- | --- |
++| `VIVO_NAMESPACE` | URI RDF de base terminée par `/` ; à choisir pour l'institution avant de charger les données. |
++| `VIVO_ADMIN_EMAIL` | Courriel configurant le compte root VIVO ; ce n'est ni le nom SSH ni un réglage d'envoi de courriels. |
++| `VIVO_LANGUAGES` | Codes de locale séparés par des virgules ; une locale force cette langue, plusieurs permettent une sélection si les ressources sont disponibles. |
++| `VIVO_LANGUAGE_FILTER` | `true` ou `false` ; consultez [[fr_Configuring-VIVO]] avant de l'activer. |
++| `TOMCAT_HEAP_MIN`, `TOMCAT_HEAP_MAX` | L'exemple reprend les valeurs de secours `2g`/`6g` de l'image, sans constituer une recommandation de dimensionnement. Adaptez-les à la VM et validez la charge. |
++| `VIVO_FQDN` | Laisser vide pour obtenir un certificat plus tard. Si renseigné, utiliser un nom résolvant déjà vers cette VM et préparer l'accès HTTP-01 avant la demande du premier démarrage. |
+ 
+-> Les valeurs calculées sont écrites dans `/etc/vivo/install.conf` ; n'ajoutez pas de réglages de heap par Données personnalisées.
++Ce bloc ne crée ni disque, ni enregistrement DNS, ni règle réseau. Sans configuration fournie, l'image utilise un namespace et un courriel d'exemple, `en_US`, le filtre `false`, un tas `2g`/`6g` et un FQDN vide comme valeurs de secours. Ce ne sont pas des réglages institutionnels.
+ 
+----
++### Le déploiement ARM direct est un parcours distinct
+ 
+-## Étape 4 — Vérifier + Créer
++Le modèle ARM de référence génère son propre `customData` cloud-init à partir de paramètres comme `vivoNamespace`, `vivoAdminEmail`, `vivoLanguages`, `vivoLanguageFilter`, `vmSize`, `dataDiskSizeGB` et `sshSourceIP`. Ne remplacez pas ce bloc généré par un second bloc. Sa référence locale d'image vise encore **Jammy 1.1.19** lors de cette revue ; ce n'est pas un artefact de déploiement 1.2.0 approuvé.
+ 
+-Vérifiez le groupe de ressources, la région, la taille de VM, le disque, la restriction SSH, l'espace de noms, le courriel administrateur et les langues, puis cliquez sur **Créer**. Azure provisionne la VM et VIVO se configure automatiquement au premier démarrage. Attendez 5 à 10 minutes avant de vous connecter.
++Le modèle associe les tailles de VM à des valeurs de tas (`1g`/`3g`, `2g`/`6g`, `4g`/`12g`, `8g`/`24g`). Ce comportement de référence n'est ni un calcul automatique démontré dans l'assistant Marketplace ni une recommandation de capacité de production. La présence d'un `createUiDefinition.json` ne prouve pas qu'une offre VM standard expose des champs VIVO personnalisés.
+ 
+-Le déploiement crée une adresse IP publique avec un FQDN Azure. Utilisez le FQDN, et non l'adresse IP, pour accéder à VIVO, car le certificat TLS est émis pour ce nom.
+-
+----
++## Étape 3 — Créer et vérifier l'initialisation
+ 
+-## Après le déploiement
++Vérifiez les coûts, la version d'image, le groupe de ressources, l'exposition réseau et la configuration, puis créez la VM. La fin du provisionnement Azure ne prouve pas que l'initialisation de VIVO est terminée ; le délai varie. Connectez-vous par SSH et suivez [[fr_Post-Deployment-Verification]]. Vérifiez la fin de cloud-init, le marqueur de premier démarrage, le montage `/data` et les services avant utilisation.
+ 
+-Connectez-vous via SSH et vérifiez :
++Consultez configuration et journaux localement ; expurgez secrets, adresses et données personnelles avant de partager des extraits. Ne relancez pas l'initialisation et ne supprimez pas son marqueur pour reconfigurer l'instance ; consultez [[fr_Configuring-VIVO]].
+ 
+-```bash
+-sudo cat /etc/vivo/install.conf        # confirmer que la configuration a été appliquée
+-sudo cat /var/log/vivo-first-boot.log  # journal de provisionnement
+-curl -sk https://localhost/ | grep -i vivo
+-```
++## Étape 4 — Configurer DNS, TLS et première connexion
+ 
+-Ou lancez le **diagnostic automatisé** depuis votre poste de travail pour tout vérifier en une seule commande (services, pare-feu, TLS, Solr, SPARQL, journaux) :
++Utilisez le nom réellement assigné ou configuré pour ce déploiement ; le parcours Marketplace ne garantit pas un nom DNS. Au besoin, l'outil documentaire permet d'assigner un label DNS à une IP publique Azure depuis votre poste :
+ 
+ ```bash
+ git clone https://github.com/Cotechnoe/vivo-azure-marketplace-docs.git
+ cd vivo-azure-marketplace-docs
+-make diag IP=<ip-publique-vm>
++make set-dns IP=<vm-public-ip> DNS=<chosen-label>
+ ```
+ 
+-> Consultez [[fr_Post-Deployment-Verification#diagnostic-automatisé|Diagnostic automatisé]] pour la liste complète des vérifications et les instructions de mise en place.
+-
+-Le déploiement Marketplace assigne déjà un FQDN Azure. Si une VM a été déployée hors du modèle Marketplace (par exemple par un script de test), assignez un nom DNS avec :
+-
+-```bash
+-make set-dns IP=<ip-publique-vm>
+-```
+-
+-> Consultez [[fr_Post-Deployment-Verification#assigner-un-nom-dns|Assigner un nom DNS]] pour les détails.
+-
+-Selon la version de l'image et les paramètres de déploiement, le premier démarrage peut tenter d'obtenir un certificat Let's Encrypt pour le FQDN Azure. L'émission et son délai ne sont pas garantis. Vérifiez le certificat servi avant d'entrer des identifiants. Utilisez la commande suivante pour reprendre une demande initiale échouée ou pour provisionner un certificat après l'assignation d'un nom DNS hors du modèle Marketplace :
+-
+-```bash
+-make certbot IP=<ip-publique-vm> FQDN=<fqdn-ci-dessus> EMAIL=<votre@courriel.com> SSH_KEY=~/.ssh/votre-clé.pem
+-```
+-
+-> Consultez [[fr_HTTPS-TLS-Certificate]] pour plus de détails sur la gestion et le renouvellement du certificat.
+-
+----
++Cette commande modifie une ressource Azure dans l'abonnement sélectionné par la CLI. Vérifiez d'abord l'abonnement et la ressource d'IP publique. Pour un déploiement privé, préparez plutôt le DNS et le certificat avec votre administrateur.
+ 
+-## Références
++NGINX sert initialement un certificat autosigné. Fournir un FQDN peut déclencher une tentative Certbot au premier démarrage ; assigner un DNS plus tard ne la relance pas. Obtenez et vérifiez un certificat de confiance avec [[fr_HTTPS-TLS-Certificate]] avant d'entrer des identifiants. Les essais 1.2.0 n'établissent pas la confiance TLS du navigateur.
+ 
+-- [[fr_SSH-Connection]] — Générer et utiliser votre clé SSH
+-- [[fr_Post-Deployment-Verification]] — Vérifications après le déploiement
+-- [[fr_Configuring-VIVO]] — Espace de noms, i18n et modifications post-déploiement
+-- [[fr_Troubleshooting]] — Problèmes courants et solutions
++Consultez [[fr_Post-Deployment-Verification#première-connexion-de-ladministrateur-vivo]] pour le compte Web VIVO distinct. Suivez [[fr_Configuring-VIVO#exploitation-sauvegardes-et-coûts]] avant de conserver une instance ou de charger des données institutionnelles.
+diff --git a/fr_Exploring-VIVO.md b/fr_Exploring-VIVO.md
+index 98bbabf2e793e29db78500824547f7fd98dfab94..2435291a7c328c1fefd9ba7102cf03fd4e5fc09c 100644
+--- a/fr_Exploring-VIVO.md
++++ b/fr_Exploring-VIVO.md
+@@ -4,7 +4,7 @@
+ 
+ Cette page vous guide à travers l'interface VIVO après un déploiement réussi. Elle couvre la connexion, la recherche, la consultation des profils et l'utilisation des outils d'administration du site.
+ 
+-> Les exemples ci-dessous supposent que les [[fr_Loading-Sample-Data|données d'exemple]] ont été chargées. Sur une instance vide, les résultats de recherche seront vides jusqu'à ce que des données réelles ou d'exemple soient ajoutées.
++> Les exemples ci-dessous supposent que les [[données d'exemple|fr_Loading-Sample-Data]] ont été chargées. Sur une instance vide, les résultats de recherche seront vides jusqu'à ce que des données réelles ou d'exemple soient ajoutées.
+ 
+ ---
+ 
+@@ -103,7 +103,7 @@ Le panneau **Site Admin** (accessible depuis l'en-tête lorsque connecté en tan
+ | Section | Description |
+ |---------|-------------|
+ | **Add/Remove RDF Data** | Charger ou supprimer des triplets RDF (N3, Turtle, RDF/XML) |
+-| **Ingest Menu** | Récupérer des données depuis des sources externes |
++| **Ingest Menu** | Outils d'ingestion ; sources et intégrations à configurer séparément |
+ | **User Accounts** | Créer et gérer des comptes utilisateur |
+ | **Site Configuration** | Thème, coordonnées et paramètres d'affichage |
+ | **SPARQL Query** | Exécuter des requêtes SPARQL directement sur le triplestore |
+@@ -119,7 +119,7 @@ VIVO inclut des visualisations intégrées accessibles depuis les profils de per
+ - **Chronologie des publications** — vue chronologique de la production savante
+ - **Carte géographique** — distribution des collaborateurs par lieu (lorsque les données de localisation sont présentes)
+ 
+-Ces visualisations sont disponibles sous l'onglet **Visualization** des pages de profil.
++La présence et le résultat de ces outils dépendent de l'interface, de la configuration et des données. Les essais 1.2.0 ne valident pas toutes les visualisations ou intégrations ; consultez [[fr_Home#image-120--statut-et-vérifications]].
+ 
+ ---
+ 
+diff --git a/fr_HTTPS-TLS-Certificate.md b/fr_HTTPS-TLS-Certificate.md
+index 2d34820ef5934aa4e68119bb12002f674f2b4fc4..473669e058b3af3ecd8a57a4bb9c093f2a5dd8f1 100644
+--- a/fr_HTTPS-TLS-Certificate.md
++++ b/fr_HTTPS-TLS-Certificate.md
+@@ -8,12 +8,16 @@ VIVO est servi exclusivement via HTTPS (port 443). Cette page explique comment l
+ 
+ ## Certificat Let's Encrypt automatique
+ 
+-Selon la version de l'image Marketplace et les paramètres de déploiement, le premier démarrage peut tenter d'obtenir un certificat TLS auprès de [Let's Encrypt](https://letsencrypt.org/). L'émission n'est pas garantie : le FQDN doit résoudre vers la VM, le port 80 doit être accessible et le défi ACME doit réussir.
++L'image **1.2.0** démarre avec un **certificat autosigné**. Son script de premier démarrage ne tente Let's Encrypt que si `VIVO_FQDN` est non vide et si Certbot est disponible. Vérifiez que le déploiement fournit réellement cette valeur : le modèle ARM de référence le fait, mais cela ne démontre pas le comportement de l'assistant Marketplace. Assigner un nom DNS après le premier démarrage ne relance pas à lui seul la demande de certificat.
++
++Les essais archivés de la 1.2.0 utilisaient un certificat autosigné avec vérification de confiance contournée. L'obtention d'un certificat reconnu par le navigateur n'a **pas** été démontrée sur ce parcours Marketplace. La procédure ci-dessous décrit une intervention d'administration ou de récupération, et non une émission réussie observée pour cette préversion.
++
++Pour le [défi HTTP-01](https://letsencrypt.org/docs/challenge-types/#http-01-challenge) du greffon NGINX, le DNS public doit résoudre vers le point d'accès prévu et le port entrant **80** doit être accessible à l'autorité de certification. Une règle NSG limitée à votre poste ne suffit pas à ce défi. Pour un service privé, prévoyez un certificat institutionnel ou une autre méthode de validation configurée séparément ; DNS-01 n'est pas configuré par cette image.
+ 
+ **Fonctionnement :**
+ 
+ 1. Nginx démarre avec le certificat configuré par l'image.
+-2. Si le provisionnement automatique est configuré, le script de premier démarrage tente `certbot --nginx` pour le FQDN du déploiement, par exemple :
++2. Lorsque les conditions ci-dessus sont remplies, le premier démarrage tente `certbot --nginx` pour le FQDN fourni, par exemple :
+    ```
+    {projectName}-{uniqueHash}.{region}.cloudapp.azure.com
+    ```
+@@ -32,7 +36,7 @@ Vérifiez le certificat configuré sur la VM :
+ # Depuis la VM
+ sudo certbot certificates
+ 
+-# Résultat attendu :
++# Exemple après émission réussie :
+ # Found the following certs:
+ #   Certificate Name: vivo-xxxx.canadacentral.cloudapp.azure.com
+ #   Domains: vivo-xxxx.canadacentral.cloudapp.azure.com
+@@ -49,13 +53,13 @@ curl --silent --show-error --output /dev/null \
+   "https://${FQDN}/"
+ ```
+ 
+-Le résultat de vérification TLS doit être `0`. Vous pouvez aussi examiner le certificat dans le navigateur et confirmer que son sujet/SAN comprend le FQDN et que le navigateur fait confiance à son émetteur.
++La commande doit se terminer avec succès et indiquer un résultat de vérification TLS `0` ; une réponse HTTP ou une date d'expiration ne suffit pas. N'ajoutez pas `-k` à ce contrôle de confiance. Vous pouvez aussi examiner le certificat dans le navigateur et confirmer que son sujet/SAN comprend le FQDN et que le navigateur fait confiance à son émetteur.
+ 
+ ---
+ 
+ ## Avertissement de sécurité du navigateur (certificat auto-signé de secours)
+ 
+-Si la demande du premier démarrage échoue (par exemple, DNS non prêt, port 80 bloqué ou limite ACME atteinte), le certificat de secours peut rester actif.
++Si aucun FQDN n'a été fourni, aucune demande n'a été faite. En cas d'échec d'une demande (DNS non prêt, port 80 bloqué ou limite ACME atteinte, par exemple), le certificat autosigné peut rester actif. Un certificat personnalisé expiré ou ne correspondant pas au nom peut aussi provoquer un avertissement.
+ 
+ **Symptôme :** Le navigateur indique que le certificat n'est pas fiable, qu'il est expiré ou qu'il ne correspond pas au FQDN.
+ 
+@@ -67,7 +71,7 @@ N'utilisez pas l'adresse IP publique comme URL dans le navigateur : le certifica
+ 
+ ## Provisionnement manuel du certificat
+ 
+-Si le provisionnement automatique a échoué, confirmez d'abord que le FQDN résout vers l'adresse IP publique actuelle de la VM et que le port entrant 80 est accessible. Depuis votre poste de travail, demandez le certificat avec :
++Si aucune demande n'a été faite ou si le provisionnement automatique a échoué, confirmez d'abord que le FQDN résout vers l'adresse IP publique actuelle de la VM et que le port entrant 80 est accessible. Depuis un clone du dépôt documentaire sur votre poste, avec `make`, OpenSSH et OpenSSL installés, demandez le certificat avec :
+ 
+ ```bash
+ make certbot IP=<ip-publique-vm> FQDN=<fqdn> EMAIL=<votre@courriel.com> SSH_KEY=~/.ssh/votre-clé.pem
+@@ -107,7 +111,7 @@ curl --silent --show-error --output /dev/null \
+ 
+ ## Renouvellement du certificat
+ 
+-Vérifiez le mécanisme de renouvellement configuré pour cette image; il peut s'agir d'un minuteur systemd ou d'une tâche cron. Ne supposez pas qu'un minuteur ou une entrée cron est actif simplement parce qu'un certificat existe.
++Consultez les [instructions de renouvellement Certbot](https://eff-certbot.readthedocs.io/en/stable/using.html#automated-renewals) et vérifiez le mécanisme configuré pour cette image ; il peut s'agir d'un minuteur systemd ou d'une tâche cron. Ne supposez pas qu'un minuteur ou une entrée cron est actif simplement parce qu'un certificat existe.
+ 
+ Pour un minuteur systemd :
+ 
+diff --git a/fr_Home.md b/fr_Home.md
+index a6d964f8d0235cf59b704bd35f371ce254c9957c..7aa033166a2a61552a8fb7b13da0c270f5eb7150 100644
+--- a/fr_Home.md
++++ b/fr_Home.md
+@@ -1,10 +1,26 @@
+ # VIVO Knowledge Graph — Documentation Azure Marketplace
+ 
++> 🇬🇧 This page is also available in English: [[Home]]
++
+ Bienvenue dans la documentation officielle de **VIVO Knowledge Graph** déployé via le Microsoft Azure Marketplace.
+ 
+ VIVO est une plateforme open source de mise en réseau de la recherche, utilisée par les universités et les institutions de recherche pour représenter, gérer et partager des données scientifiques sous forme de graphe de connaissances sémantique.
+ 
+-> 🇬🇧 This page is also available in English: [[Home]]
++---
++
++## Image 1.2.0 — statut et vérifications
++
++| Élément | Statut vérifié ou rapporté au 14 novembre 2026 |
++| --- | --- |
++| Image de préversion | **1.2.0**, Ubuntu **24.04 LTS** ; VIVO et Vitro **1.16.0** |
++| Pile incluse | Java 21, Tomcat 9, Solr 9, Jena TDB1 et NGINX ; configuration et administration continue nécessaires |
++| Marketplace | Certification et création de préversion réussies selon la confirmation de l'éditeur et la capture Partner Center ; Go live en attente. La capture n'indique pas elle-même la version d'image. |
++| Offre publique | La fiche observée ce jour décrivait encore Ubuntu 22.04 ; confirmez l'image réellement sélectionnée avant de déployer. |
++| Contrôles réalisés | Packaging/provenance de l'image et OS/services vérifiés ; smoke réseau 10/10, Chromium 3/3 et population par formulaires Firefox 1/1 réussis sur une VM issue de l'image exacte. |
++| Limites | SPARQL exigeait une authentification. TLS utilisait un certificat autosigné. La population par formulaires omettait des sujets source incomplets et une relation de lieu de publication non prise en charge ; elle ne constituait pas un import RDF identique. |
++| Certification Test Tool | Rapport CTT officiel différé ; la certification Partner Center ne remplace pas ce rapport. |
++
++Ces résultats ne démontrent pas la validation fonctionnelle générale de VIVO, la confiance TLS du navigateur, la capacité de charge ni le parcours Marketplace complet. Le parcours prévu pour la configuration initiale de la 1.2.0 utilise Custom data ; consultez [[fr_Deploying-from-Marketplace]] pour les vérifications de déploiement et [[fr_Configuring-VIVO]] pour l'exploitation et les sauvegardes. Une nouvelle VM ne migre pas automatiquement les données ou la configuration d'une instance existante.
+ 
+ ---
+ 
+@@ -12,53 +28,45 @@ VIVO est une plateforme open source de mise en réseau de la recherche, utilisé
+ 
+ Vous souhaitez vérifier l'offre avant de planifier un déploiement complet ? Commencez par l'[[Évaluation rapide|fr_Quick-Start-Evaluation]]. Elle utilise un environnement temporaire, réservé aux tests, et inclut l'étape de suppression.
+ 
+-Pour un deploiement complet, VIVO est disponible directement depuis le [Microsoft Azure Marketplace](https://azuremarketplace.microsoft.com). Suivez ces etapes :
++Pour un déploiement complet, VIVO est disponible directement depuis le [Microsoft Azure Marketplace](https://azuremarketplace.microsoft.com). Suivez ces étapes :
+ 
+ | Étape | Description | Page |
+ |-------|-------------|------|
+-| 1 | Déployer VIVO et remplir les paramètres de configuration | [Déployer VIVO depuis Azure Marketplace](fr_Deploying-from-Marketplace) |
++| 1 | Sélectionner l'image et confirmer sa méthode de configuration | [Déployer VIVO depuis Azure Marketplace](fr_Deploying-from-Marketplace) |
+ | 2 | Se connecter à la VM via SSH | [Connexion SSH](fr_SSH-Connection) |
+ | 3 | Vérifier que les services sont en cours d'exécution | [Vérification post-déploiement](fr_Post-Deployment-Verification) |
+-| 3 | Confirmer que le certificat HTTPS est actif | [Certificat HTTPS / TLS](fr_HTTPS-TLS-Certificate) |
+-| 4 | Configurer les paramètres VIVO | [Configuration de VIVO](fr_Configuring-VIVO) |
+-| 5 | Charger des données d'exemple pour explorer les fonctionnalités | [Chargement des données d'exemple](fr_Loading-Sample-Data) |
+-| 6 | Explorer l'interface VIVO | [Explorer VIVO](fr_Exploring-VIVO) |
+-| 7 | Résoudre les problèmes courants | [Dépannage](fr_Troubleshooting) |
++| 4 | Vérifier la confiance du certificat HTTPS | [Certificat HTTPS / TLS](fr_HTTPS-TLS-Certificate) |
++| 5 | Configurer les paramètres VIVO | [Configuration de VIVO](fr_Configuring-VIVO) |
++| 6 | Charger des données d'exemple pour explorer les fonctionnalités | [Chargement des données d'exemple](fr_Loading-Sample-Data) |
++| 7 | Explorer l'interface VIVO | [Explorer VIVO](fr_Exploring-VIVO) |
++| 8 | Résoudre les problèmes courants | [Dépannage](fr_Troubleshooting) |
+ 
+ ---
+ 
+ ## Vue d'ensemble de l'architecture
+ 
+-```
+-Internet (HTTPS 443 / HTTP 80)
+-        │
+-     nginx  ──  proxy inverse + TLS (Let's Encrypt peut être tenté; certificat de secours possible)
+-        │
+-     Tomcat 9  (port 8080 — interne uniquement)
+-        │
+-     Application VIVO  (ROOT.war)
+-        │
+-     Apache Solr  (port 8983 — interne uniquement)
+-        │
+-     /data  ──  Disque de données géré Azure  (triplestore TDB1, index Solr, journaux)
++```text
++Client -- HTTPS --> NGINX -- HTTP local --> Tomcat / VIVO
++                                           |-- Jena TDB1 : stockage RDF
++                                           |-- Solr : index de recherche
++/data : VIVO home, magasins RDF, données Solr et journaux
+ ```
+ 
+-> **Sécurité :** Les ports **8080** (Tomcat) et **8983** (Solr) sont bloqués au niveau du NSG.
+-> Seuls les ports **80** (HTTP → redirection HTTPS) et **443** (HTTPS) sont accessibles publiquement.
++L'image configure UFW pour refuser l'accès externe à Tomcat (8080) et Solr (8983). Vérifiez aussi les règles NSG Azure effectives du déploiement : limitez SSH (22) aux sources de confiance, ouvrez le Web selon le besoin et gardez 8080/8983 privés. Le DNS, le disque de données séparé et les règles NSG dépendent du déploiement ; vérifiez leur présence.
+ 
+ ---
+ 
+ ## Paramètres de déploiement
+ 
+-Ces noms de paramètres proviennent du modèle de déploiement de référence; ils ne constituent pas une liste vérifiée des champs de l'assistant Marketplace actuel. Consultez [[fr_Deploying-from-Marketplace]] pour les limites de vérification et [[fr_Post-Deployment-Verification#première-connexion-de-ladministrateur-vivo]] pour la première connexion.
++Ces noms de paramètres proviennent du modèle ARM de référence ; ce ne sont pas des champs à attendre dans l'assistant VM Marketplace. Le guide de déploiement décrit le parcours Custom data prévu pour l'image 1.2.0, sans présenter l'assistant Marketplace complet comme testé. Consultez [[fr_Deploying-from-Marketplace]] pour les limites de vérification et [[fr_Post-Deployment-Verification#première-connexion-de-ladministrateur-vivo]] pour la première connexion.
+ 
+ | Paramètre | Description | Exemple |
+ |-----------|-------------|---------|
+ | `adminUsername` | Nom d'utilisateur administrateur SSH de la VM | `azureuser` |
+ | `adminPublicKey` | Clé publique SSH (format OpenSSH) | `ssh-ed25519 AAAA...` |
+-| `vmSize` | Taille de la VM Azure | `Standard_D2s_v3` |
+-| `dataDiskSizeGB` | Taille du disque de données pour le stockage VIVO | `64` |
+-| `sshSourceIP` | CIDR autorisé pour l'accès SSH | `203.0.113.0/32` ou `*` |
++| `vmSize` | Taille de la VM Azure | À choisir selon la charge |
++| `dataDiskSizeGB` | Taille du disque de données pour le stockage VIVO | À dimensionner selon la charge |
++| `sshSourceIP` | CIDR autorisé pour l'accès SSH | CIDR de confiance |
+ | `vivoNamespace` | URI de base RDF pour les entités VIVO | `http://vivo.monuniversite.ca/individual/` |
+ | `vivoAdminEmail` | Courriel de connexion de l'administrateur VIVO | `vivo_root@monuniversite.ca` |
+ | `vivoLanguages` | Langue(s) supportée(s) | `en_US` ou `en_US,fr_CA` |
+diff --git a/fr_Loading-Sample-Data.md b/fr_Loading-Sample-Data.md
+index a47d22566788d3a8fe41dd62fe57a3bdcd1ad7d0..466ca993ee4c3b41b5005c74b1a216c7428ef656 100644
+--- a/fr_Loading-Sample-Data.md
++++ b/fr_Loading-Sample-Data.md
+@@ -16,14 +16,14 @@ Deux scénarios de chargement sont couverts ci-dessous :
+ ## Prérequis
+ 
+ - VIVO est en cours d'exécution et accessible à `https://<fqdn>/`
+-- Vous êtes connecté en tant qu'**administrateur du site** (le courriel et le mot de passe définis au déploiement)
++- Vous êtes connecté en tant qu'**administrateur du site** (le compte sécurisé pour cette instance ; consultez [[fr_Post-Deployment-Verification#première-connexion-de-ladministrateur-vivo]])
+ - Naviguez vers : **Site Admin → Add/Remove RDF Data**
+ 
+ ---
+ 
+ ## Scénario 1 — Sans i18n (anglais uniquement)
+ 
+-Chargez un seul fichier N3. Les étiquettes sont incorporées en anglais sans marqueurs de langue.
++Chargez un seul fichier N3. Le fichier amont actuel comprend des étiquettes anglaises avec balises de langue ; ce n'est pas un jeu sans balises.
+ 
+ ### Étape 1 — Charger les données d'exemple
+ 
+@@ -31,7 +31,7 @@ Dans **Add/Remove RDF Data** :
+ 
+ | Champ | Valeur |
+ |-------|--------|
+-| URL | `https://raw.githubusercontent.com/vivo-project/sample-data/master/sample-data.n3` |
++| URL | `https://raw.githubusercontent.com/vivo-project/sample-data/main/sample-data.n3` |
+ | Action | **Add instance data** |
+ | File type | **N3** |
+ 
+@@ -51,28 +51,13 @@ Le répertoire `i18n/` du dépôt de données d'exemple distribue les étiquette
+ 
+ | Fichier | Contenu |
+ |---------|---------|
+-| [`sample-data.ttl`](https://raw.githubusercontent.com/vivo-project/sample-data/master/i18n/sample-data.ttl) | Données de base — structure et relations, **sans étiquettes de langue** |
+-| [`sample-data-en_US.ttl`](https://raw.githubusercontent.com/vivo-project/sample-data/master/i18n/sample-data-en_US.ttl) | Étiquettes en anglais (`en_US`) pour toutes les ressources |
+-| [`sample-data-fr_CA.ttl`](https://raw.githubusercontent.com/vivo-project/sample-data/master/i18n/sample-data-fr_CA.ttl) | Étiquettes en français canadien (`fr_CA`) pour toutes les ressources |
++| [`sample-data-i18n.ttl`](https://raw.githubusercontent.com/vivo-project/sample-data/main/i18n/sample-data-i18n.ttl) | Données de base — structure, relations et étiquettes anglaises avec balises de langue |
++| [`sample-data-i18n-en_US.ttl`](https://raw.githubusercontent.com/vivo-project/sample-data/main/i18n/sample-data-i18n-en_US.ttl) | Énoncés anglais (`en_US`) supplémentaires ; pas un ensemble complet pour chaque ressource |
++| [`sample-data-i18n-fr_CA.ttl`](https://raw.githubusercontent.com/vivo-project/sample-data/main/i18n/sample-data-i18n-fr_CA.ttl) | Énoncés français canadiens (`fr_CA`) supplémentaires ; pas une traduction complète |
+ 
+ ### Étape 1 — Activer le mode multi-locale
+ 
+-Connectez-vous en SSH à la VM et configurez `runtime.properties` pour le mode multi-locale :
+-
+-```bash
+-sudo sed -i \
+-  -e 's|^languages\.forceLocale|#languages.forceLocale|' \
+-  -e 's|^#\?languages\.selectableLocales.*|languages.selectableLocales = en_US, fr_CA|' \
+-  -e 's|^RDFService\.languageFilter.*|RDFService.languageFilter = true|' \
+-  /data/vivo/home/config/runtime.properties
+-sudo systemctl restart tomcat
+-```
+-
+-Attendez le redémarrage de Tomcat (~30 secondes), puis vérifiez :
+-
+-```bash
+-grep -E "languageFilter|forceLocale|selectableLocales" /data/vivo/home/config/runtime.properties
+-```
++Suivez [[fr_Configuring-VIVO#mode-2--multi-locale]] pour configurer le fichier actif, y compris les propriétés absentes ou commentées. Après redémarrage de Tomcat, vérifiez le sélecteur et des valeurs d'exemple avant d'importer davantage de données. Le fichier de base contient déjà des étiquettes anglaises ; les fichiers par locale le complètent.
+ 
+ ### Étape 2 — Charger les données de base
+ 
+@@ -80,7 +65,7 @@ Dans **Site Admin → Add/Remove RDF Data** :
+ 
+ | Champ | Valeur |
+ |-------|--------|
+-| URL | `https://raw.githubusercontent.com/vivo-project/sample-data/master/i18n/sample-data.ttl` |
++| URL | `https://raw.githubusercontent.com/vivo-project/sample-data/main/i18n/sample-data-i18n.ttl` |
+ | Action | **Add instance data** |
+ | File type | **Turtle** |
+ 
+@@ -90,7 +75,7 @@ Cliquez sur **Submit**.
+ 
+ | Champ | Valeur |
+ |-------|--------|
+-| URL | `https://raw.githubusercontent.com/vivo-project/sample-data/master/i18n/sample-data-en_US.ttl` |
++| URL | `https://raw.githubusercontent.com/vivo-project/sample-data/main/i18n/sample-data-i18n-en_US.ttl` |
+ | Action | **Add instance data** |
+ | File type | **Turtle** |
+ 
+@@ -100,7 +85,7 @@ Cliquez sur **Submit**.
+ 
+ | Champ | Valeur |
+ |-------|--------|
+-| URL | `https://raw.githubusercontent.com/vivo-project/sample-data/master/i18n/sample-data-fr_CA.ttl` |
++| URL | `https://raw.githubusercontent.com/vivo-project/sample-data/main/i18n/sample-data-i18n-fr_CA.ttl` |
+ | Action | **Add instance data** |
+ | File type | **Turtle** |
+ 
+@@ -135,22 +120,22 @@ Confirmez que l'API retourne des résultats avant de tester l'interface navigate
+ 
+ ```bash
+ # Lister tous les domaines de recherche indexés
+-curl -sk "https://<fqdn>/visualizationAjax?vis=capabilitymap&query=all&data=concepts" | head -c 500
++curl -sS "https://<fqdn>/visualizationAjax?vis=capabilitymap&query=all&data=concepts" | head -c 500
+ 
+ # Récupérer les chercheurs liés à un concept spécifique
+-curl -sk "https://<fqdn>/visualizationAjax?vis=capabilitymap&query=Rhetoric&callback=ipretResults&noCacheIE=1" | head -c 500
++curl -sS "https://<fqdn>/visualizationAjax?vis=capabilitymap&query=Rhetoric&callback=ipretResults&noCacheIE=1" | head -c 500
+ ```
+ 
+-Résultat attendu : une fonction de rappel JSONP contenant des données JSON (`ipretResults({...})`).
++Pour la requête contenant `callback=ipretResults`, examinez la réponse JSONP (`ipretResults({...})`) et ses enregistrements ; cela ne valide pas la visualisation navigateur.
+ 
+-Si la réponse est du HTML (page d'erreur VIVO), les données sont manquantes. Si le navigateur bloque la requête, consultez [[fr_Troubleshooting#carte-des-compétences-vide--jsonp-bloqué-par-le-type-mime]].
++Si la réponse est du HTML, examinez statut HTTP, authentification et erreur applicative ; cela ne prouve pas à lui seul l'absence de données. Si le navigateur bloque la requête, consultez [[fr_Troubleshooting#carte-des-compétences-vide--jsonp-bloqué-par-le-type-mime]].
+ 
+ ### Vérifier l'en-tête Content-Type
+ 
+ Les navigateurs appliquent une vérification stricte du type MIME. Confirmez que nginx retourne le bon type :
+ 
+ ```bash
+-curl -sk -I "https://<fqdn>/visualizationAjax?vis=capabilitymap&query=Rhetoric&callback=ipretResults&noCacheIE=1" \
++curl -sS -I "https://<fqdn>/visualizationAjax?vis=capabilitymap&query=Rhetoric&callback=ipretResults&noCacheIE=1" \
+   | grep -i content-type
+ ```
+ 
+@@ -159,15 +144,15 @@ Résultat attendu :
+ content-type: application/javascript; charset=UTF-8
+ ```
+ 
+-Si la réponse retourne `text/html`, appliquez la correction nginx décrite dans [[fr_Troubleshooting#carte-des-compétences-vide--jsonp-bloqué-par-le-type-mime]].
++Si la réponse retourne `text/html`, examinez réponse et configuration active avant d'envisager le contournement historique dans [[fr_Troubleshooting#carte-des-compétences-vide--jsonp-bloqué-par-le-type-mime]].
+ 
+ ---
+ 
+ ## Note sur les espaces de nommage (namespace)
+ 
+-Les données d'exemple VIVO de [vivo-project/sample-data](https://github.com/vivo-project/sample-data) utilisent le namespace par défaut `http://vivo.mydomain.edu/individual/`. Lorsque votre instance VIVO est configurée avec un namespace personnalisé (ex. : `http://vivo.moninstitution.edu/individual/`), la carte des compétences et les fonctions de recherche fonctionneront correctement, mais la navigation directe vers les pages de profil individuel par URI risque de ne pas aboutir.
++Examinez les namespaces des fichiers amont choisis : leurs URI de ressources peuvent différer du namespace de votre instance. Charger un fichier ne réécrit pas ses identifiants. Vérifiez liens des profils, recherche et visualisations plutôt que de supposer leur fonctionnement pour chaque combinaison de namespaces.
+ 
+-Ceci est attendu lorsque les données d'exemple Lyrasis sont utilisées telles quelles sur un déploiement personnalisé. Ces données permettent d'explorer les fonctionnalités de VIVO ; elles ne sont pas destinées à un usage en production.
++Le scénario Firefox archivé de la 1.2.0 reconstruisait une sélection de données par formulaires, en omettant des sujets source incomplets et une relation de lieu de publication non prise en charge. Il ne testait pas cette procédure d'import RDF et n'établissait pas un graphe identique. Les fichiers amont peuvent changer ; consignez la révision utilisée pour reproduire un essai.
+ 
+ ---
+ 
+diff --git a/fr_Post-Deployment-Verification.md b/fr_Post-Deployment-Verification.md
+index 0c732dfb3894e06e8fa11b7100119fbd39c97ef3..b348481dbc3b8c99db517b2b0aa615555180cc29 100644
+--- a/fr_Post-Deployment-Verification.md
++++ b/fr_Post-Deployment-Verification.md
+@@ -2,13 +2,13 @@
+ 
+ > 🇬🇧 This page is also available in English: [[Post-Deployment-Verification]]
+ 
+-Après le déploiement, vérifiez que tous les services VIVO fonctionnent correctement.
++Après le déploiement, vérifiez séparément initialisation, stockage, réponses des services et TLS. Consultez [[fr_Home#image-120--statut-et-vérifications]] pour la portée des essais archivés de l'image 1.2.0.
+ 
+ ---
+ 
+ ## Diagnostic automatisé
+ 
+-Un outil compagnon exécute toutes les vérifications post-déploiement en une seule commande **depuis votre poste de travail** — sans session SSH manuelle.
++Un outil compagnon exécute un ensemble de sondes de diagnostic en une seule commande **depuis votre poste de travail** — sans session SSH manuelle.
+ 
+ **Prérequis :** Git, `make`, accès SSH à la VM et votre clé privée SSH. Le dépôt public peut être cloné en HTTPS sans authentification SSH GitHub.
+ 
+@@ -24,26 +24,26 @@ Si votre utilisateur SSH ou le chemin de la clé diffèrent des valeurs par déf
+ make diag IP=<ip-publique-vm> SSH_USER=azureuser SSH_KEY=~/.ssh/votre-cle.pem
+ ```
+ 
+-Le script exécute **12 vérifications** et affiche un résumé en couleur :
++Le script couvre **12 rubriques de diagnostic** et affiche un résumé en couleur :
+ 
+ | # | Vérification | Ce qui est contrôlé |
+ |---|--------------|---------------------|
+-| 1 | cloud-init | Provisionnement terminé avec succès |
+-| 2 | Premier boot | Marqueur `/etc/vivo/.first-boot-done` présent (ou journal confirme la fin) |
+-| 3 | Config install | `/etc/vivo/install.conf` chargé avec les bonnes valeurs |
+-| 4 | Services systemd | nginx / tomcat / solr sont `active` et `enabled` |
++| 1 | cloud-init | État cloud-init rapporté ; ne teste pas toutes les fonctions applicatives |
++| 2 | Premier boot | Marqueur présent, ou fin inférée par une heuristique textuelle du journal |
++| 3 | Config install | Fichier présent et contenu affiché ; vérifier les valeurs vous-même |
++| 4 | Services systemd | nginx / tomcat / solr état actif vérifié ; état d'activation affiché |
+ | 5 | Espace disque | Utilisation de `/data` (ou racine) sous le seuil d'alerte |
+-| 6 | HTTP/HTTPS | Le port 80 redirige (301) et le port 443 retourne 200 |
+-| 7 | Certificat TLS | Date d'expiration du certificat sur nginx |
+-| 8 | Pare-feu UFW | Ports 8983 (Solr) et 8080 (Tomcat) sont explicitement `DENY` |
++| 6 | HTTP/HTTPS | Redirection HTTP locale (301/302) et réponse HTTPS avec vérification de confiance contournée |
++| 7 | Certificat TLS | Texte d'expiration de NGINX local ; sans validation de chaîne, de nom ou de seuil d'expiration |
++| 8 | Pare-feu UFW | Entrées DENY textuelles pour 8983/8080 ; pas un audit NSG effectif |
+ | 9 | Solr ping | Le cœur `vivocore` répond OK (testé depuis la VM) |
+ | 10 | Endpoint SPARQL | `/api/sparqlQuery` répond (200 ou 403 — les deux sont acceptables) |
+-| 11 | Heap Tomcat | Les paramètres JVM `-Xms`/`-Xmx` sont configurés |
+-| 12 | Scan erreurs | Aucune ligne ERROR/Exception dans les journaux de démarrage et Tomcat |
++| 11 | Heap Tomcat | Réglages de tas trouvés dans les fichiers ; pas leur adéquation à la charge |
++| 12 | Scan erreurs | Lignes récentes correspondantes signalées comme avertissements ; pas un audit exhaustif |
+ 
+-**Codes de retour :** `0` = tout est passé · `1` = un ou plusieurs FAIL · `2` = erreur de connexion SSH
++**Codes de retour :** `0` = aucun FAIL enregistré (des WARN peuvent subsister) · `1` = un ou plusieurs FAIL · `2` = erreur de connexion SSH
+ 
+-**Sortie typique d'une VM saine :**
++**Résumé illustratif ; les comptes varient et ne certifient pas un déploiement sain :**
+ ```
+ ════════════════════════════════════════════════════════
+   OK  : 16   FAIL: 0   WARN: 2
+@@ -51,14 +51,22 @@ Le script exécute **12 vérifications** et affiche un résumé en couleur :
+ ```
+ 
+ > **WARNs attendus :**
+-> - *Marqueur premier boot absent* — rétrogradé en WARN si le journal confirme la fin du boot. Non critique.
+-> - *`/data` introuvable* — normal sur les VM sans disque de données séparé. L'utilisation du système de fichiers racine est affichée en remplacement.
++> - *Marqueur premier boot absent* — rétrogradé en WARN si le journal confirme la fin du boot. Ce repli repose sur une heuristique textuelle ; confirmez la fin et examinez le marqueur absent avant de vous fier à l'initialisation.
++> - *`/data` introuvable* — l'utilisation de la racine est affichée en remplacement. Cela ne prouve pas que le disque de données prévu est disponible ; examinez le problème avant de charger des données.
++
++---
++
++## Interpréter les limites du diagnostic
++
++L'outil accepte un statut SPARQL 200 ou 403 sans valider le résultat d'une requête authentifiée. Un 401 avec défi d'authentification peut indiquer un point d'accès protégé, mais l'outil actuel le signale comme FAIL. Examinez statut, défi et politique d'accès ; ne rendez pas SPARQL public pour supprimer un échec de diagnostic.
++
++Les sondes HTTP/HTTPS s'exécutent **dans la VM**. Elles ne valident ni accès NSG externe, ni DNS, ni confiance du navigateur, ni récupération des sauvegardes. `curl -k` contourne la vérification du certificat ; une page reçue ainsi ne prouve pas la confiance TLS. Relisez et expurgez la sortie du diagnostic avant partage : elle affiche adresses, configuration et extraits de journaux.
+ 
+ ---
+ 
+ ## Assigner un nom DNS
+ 
+-Les VM déployées via Azure Marketplace reçoivent automatiquement un nom DNS. Si la VM a été créée via l'assistant du Portail ou un script de test, le nom DNS peut être absent.
++Vérifiez si le déploiement dispose d'un nom DNS ; Marketplace ne démontre pas que le modèle ARM de référence en a créé un. L'outil ci-dessous modifie la ressource Azure d'IP publique dans l'abonnement courant de la CLI. Confirmez cet abonnement et cette ressource avant de l'exécuter. Il ne configure pas un DNS privé et ne demande pas de certificat.
+ 
+ Assignez un label DNS en une seule commande (nécessite `az` CLI connecté avec l'abonnement approprié) :
+ 
+@@ -94,6 +102,22 @@ Si l'état est `running`, l'initialisation est toujours en cours — attendez qu
+ 
+ ---
+ 
++## Vérifier OS, provenance et stockage
++
++Pour l'image 1.2.0, vérifiez Ubuntu 24.04 et le noyau Azure LTS 6.8 actif. Le fichier de provenance identifie les sources VIVO/Vitro et le checksum WAR packagés ; il n'identifie pas l'image Marketplace sélectionnée dans Azure, à vérifier séparément.
++
++```bash
++cat /etc/os-release
++uname -r
++sudo cat /etc/vivo/build-provenance.json
++findmnt --mountpoint /data
++lsblk -f
++```
++
++Si un disque de données séparé était demandé, `/data` doit être un montage de ce disque. Un répertoire `/data` sur le disque OS ne prouve pas que le disque de données est monté. Examinez tout montage absent avant de charger des données.
++
++---
++
+ ## Vérifier les services
+ 
+ ```bash
+@@ -107,7 +131,7 @@ Les trois doivent retourner `active`.
+ ## Vérifier que VIVO répond
+ 
+ ```bash
+-curl -sk -o /dev/null -w "%{http_code}" http://localhost:8080/
++curl -sS -o /dev/null -w "%{http_code}" http://localhost:8080/
+ ```
+ 
+ Résultat attendu : `200`
+@@ -127,9 +151,11 @@ Naviguez vers `https://<fqdn>/` en utilisant le FQDN attribué à la VM.
+ 
+ Le compte administrateur VIVO est distinct du compte SSH de la VM. Vérifiez le certificat TLS de `https://<fqdn>/` avant d'entrer des identifiants; consultez [[fr_HTTPS-TLS-Certificate]].
+ 
+-Le modèle de déploiement de référence associe son champ de courriel administrateur à `rootUser.emailAddress`. Ses paramètres ne comprennent **pas** `vivoAdminPassword`. L'assistant et l'image actuellement publiés n'ont pas été vérifiés indépendamment par rapport à ce modèle; utilisez le courriel et la procédure de première connexion fournis pour votre déploiement, ou contactez l'éditeur s'ils ne sont pas clairs. Ne supposez pas que la clé ou le nom d'utilisateur SSH est le mot de passe VIVO.
++L'implémentation de premier démarrage 1.2.0 associe `VIVO_ADMIN_EMAIL` à `rootUser.emailAddress` ; vérifiez que votre configuration a été appliquée. Les paramètres ARM de référence ne comprennent **pas** `vivoAdminPassword`. L'assistant et l'image actuellement publiés n'ont pas été vérifiés indépendamment par rapport à ce modèle; utilisez le courriel et la procédure de première connexion fournis pour votre déploiement, ou contactez l'éditeur s'ils ne sont pas clairs. Ne supposez pas que la clé ou le nom d'utilisateur SSH est le mot de passe VIVO.
++
++À titre de comparaison, [l'implémentation du compte root Vitro à la révision embarquée dans la 1.2.0](https://github.com/vivo-project/Vitro/blob/c6fdb5091b9026f57901c97cfec88223a63cff47/api/src/main/java/edu/cornell/mannlib/vitro/webapp/auth/RootUserSetup.java#L106) crée un compte root uniquement si aucun compte n'existe pour le courriel root configuré. Pour ce nouveau compte, elle utilise un mot de passe initial public par défaut si `rootUser.password` n'est pas configuré et exige par défaut son changement. Ces deux réglages peuvent être remplacés. **Cette source ne démontre pas les réglages de l'image publiée.** Ne supposez pas qu'un compte existant est réinitialisé au redémarrage de la VM.
+ 
+-À titre de comparaison, [l'implémentation du compte root Vitro à la révision de référence](https://github.com/vivo-project/Vitro/blob/c6fdb5091b9026f57901c97cfec88223a63cff47/api/src/main/java/edu/cornell/mannlib/vitro/webapp/auth/RootUserSetup.java#L106) crée un compte root uniquement si aucun compte n'existe pour le courriel root configuré. Pour ce nouveau compte, elle utilise un mot de passe initial public par défaut si `rootUser.password` n'est pas configuré et exige par défaut son changement. Ces deux réglages peuvent être remplacés. **Cette source ne démontre pas les réglages de l'image publiée.** Ne supposez pas qu'un compte existant est réinitialisé au redémarrage de la VM.
++Les tests Chromium archivés affichent l'accueil, la redirection HTTP et le formulaire de connexion sans soumettre d'identifiants. Le test de population Firefox se connecte avec des identifiants fournis par un fichier privé et attend `/siteAdmin` ; il ne teste ni la création d'un compte root ni le changement obligatoire du premier mot de passe. Ne déduisez pas ces comportements des comptes de tests réussis.
+ 
+ Utilisez le mot de passe explicitement indiqué pour votre version déployée, limitez l'accès jusqu'à la sécurisation du compte et remplacez immédiatement tout mot de passe initial ou par défaut par un mot de passe unique et robuste. Si les identifiants attendus ou le changement de mot de passe ne fonctionnent pas, arrêtez et consultez l'éditeur ou l'administrateur de l'instance; ne publiez ni identifiants ni secrets de configuration dans une issue publique.
+ 
+diff --git a/fr_Quick-Start-Evaluation.md b/fr_Quick-Start-Evaluation.md
+index 48afc92ae4151c3b8c8b16eadd2739d2b3f2d65c..c0b85b0ca0ddae0e5bbf41473748a4590d4107be 100644
+--- a/fr_Quick-Start-Evaluation.md
++++ b/fr_Quick-Start-Evaluation.md
+@@ -6,7 +6,7 @@ Utilisez ce guide pour vérifier que l'offre VIVO Azure Marketplace se déploie
+ 
+ > Utilisez le guide complet [[Déployer depuis le Marketplace|fr_Deploying-from-Marketplace]] si vous prévoyez de conserver l'instance ou de charger des données institutionnelles.
+ 
+-> **Durée estimée :** prévoyez 20 à 30 minutes avec un abonnement Azure actif. La création ou la vérification d'un nouveau compte Azure peut prendre plus de temps.
++> **Délai :** vérification du compte, capacité régionale, initialisation de la VM et émission du certificat varient ; aucun délai de déploiement ou de certificat n'est garanti.
+ 
+ ---
+ 
+@@ -18,7 +18,7 @@ Utilisez ce guide pour vérifier que l'offre VIVO Azure Marketplace se déploie
+ 2. Accédez à [Azure gratuit](https://azure.microsoft.com/fr-fr/free/) et créez un compte Azure. L'inscription crée ou active un abonnement Azure ; elle peut demander une vérification d'identité et de paiement.
+ 3. Connectez-vous au [portail Azure](https://portal.azure.com/) et vérifiez que vous pouvez sélectionner un abonnement actif.
+ 
+-La création de la VM, de l'adresse IP publique et du disque géré peut entraîner des frais Azure après l'épuisement d'un crédit gratuit ou d'une période d'essai. Consultez les tarifs et les conditions de l'abonnement affichés lors de l'inscription avant de continuer.
++Le plan Marketplace, la VM, l'IP publique et les disques peuvent être facturés ; ne supposez pas que l'offre est couverte par les crédits ou services du compte gratuit. Consultez les tarifs et les conditions de l'abonnement affichés lors de l'inscription avant de continuer.
+ 
+ ### 2. Diagnostiquer l'accès pour un compte existant
+ 
+@@ -38,53 +38,29 @@ Si l'assistant demande uniquement de coller une clé publique SSH, créez-en une
+ 
+ ### 4. Prévoir la suppression
+ 
+-Prévoyez de supprimer le groupe de ressources d'évaluation lorsque vous avez terminé. La suppression du groupe retire la VM, l'adresse IP publique, le disque géré et les frais associés.
++Utilisez un groupe de ressources dédié à l'évaluation, sans données institutionnelles. Convenez de la personne autorisée à retirer les ressources à la fin de l'essai. Vérifiez tarif du plan et frais Azure avant toute création.
+ 
+-Ne chargez pas de données institutionnelles réelles dans cet environnement. La VM `Standard_D2s_v3` et le disque de données de 64 Go ci-dessous sont destinés aux tests uniquement.
++## Étape 1 — Sélectionner l'offre et l'image
+ 
+-## Étape 1 — Ouvrir l'offre
++Ouvrez l'[offre VIVO](https://marketplace.microsoft.com/fr-fr/product/cotechnoe.vivo-research-profiles?tab=Overview). Confirmez si vous évaluez l'offre publique ou la préversion 1.2.0 ; le [[statut daté|fr_Home#image-120--statut-et-vérifications]] les distingue.
+ 
+-Ouvrez **VIVO Knowledge Graph** dans le [Microsoft Azure Marketplace](https://marketplace.microsoft.com/en-us/product/cotechnoe.vivo-research-profiles?tab=Overview), puis sélectionnez **Créer**.
++## Étape 2 — Configurer et déployer
+ 
+-## Étape 2 — Renseigner les champs essentiels
++Suivez [[fr_Deploying-from-Marketplace]] pour VM, disques, réseau et parcours Custom data prévu pour l'image 1.2.0. Ce guide fournit l'exemple de configuration et distingue le déploiement ARM direct. Les contrôles archivés de l'image ne valident pas l'assistant Marketplace de bout en bout.
+ 
+-Les valeurs suivantes correspondent au modèle de référence et sont proposées pour l'évaluation. L'assistant réel n'a pas été vérifié indépendamment par rapport à ce modèle; confirmez les champs et la version de l'image sélectionnée avant le déploiement. Si un champ nécessaire manque ou diffère, arrêtez et contactez l'éditeur.
++Utilisez un namespace temporaire comme `https://vivo-evaluation.example.org/individual/`, un courriel administrateur contrôlé et une locale comme `en_US`. Choisissez les capacités VM/disque pour l'évaluation ; aucune taille minimale ni capacité de charge n'est établie ici.
+ 
+-| Section | Champ | Valeur d'évaluation |
+-|---------|-------|---------------------|
+-| Informations de base | Groupe de ressources | Créez un groupe de ressources d'évaluation clairement nommé, par exemple `rg-vivo-evaluation`. |
+-| Informations de base | Nom d'utilisateur admin et authentification SSH | Utilisez un nom de compte que vous contrôlez. Sélectionnez **Générer une nouvelle paire de clés** lorsque cette option est disponible, puis téléchargez et conservez le fichier de clé privée. Sinon, collez une clé publique OpenSSH existante. |
+-| Configuration de la VM | Taille de VM | `Standard_D2s_v3` |
+-| Configuration de la VM | Taille du disque de données | `64 Go` |
+-| Configuration de la VM | Adresse IP source SSH autorisée | Votre adresse IP publique actuelle avec `/32`, par exemple `203.0.113.42/32`. |
+-| Configuration VIVO | Espace de noms RDF VIVO | Une URI temporaire et unique, par exemple `https://vivo-evaluation.example.org/individual/`. |
+-| Configuration VIVO | Courriel administrateur VIVO | Une adresse courriel à laquelle vous avez accès. |
+-| Configuration VIVO | Langue(s) VIVO | Sélectionnez une langue, par exemple `en_US`. |
+-| Configuration VIVO | Activer le filtre de langue RDF | Laissez désactivé. |
++## Étape 3 — Vérifier initialisation et HTTPS
+ 
+-Ne remplacez pas la configuration cloud-init générée par un modèle via **Avancé → Données personnalisées**. Le modèle ARM de référence génère sa propre configuration de premier démarrage; sa correspondance avec l'offre publiée reste à vérifier.
++Suivez [[fr_Post-Deployment-Verification]] pour vérifier cloud-init, stockage et services. Configurez ensuite le DNS au besoin et suivez [[fr_HTTPS-TLS-Certificate]] pour obtenir et vérifier un certificat pour `https://<fqdn>/` avant d'entrer des identifiants. Une réponse HTTP avec vérification du certificat désactivée ne prouve pas la confiance du navigateur.
+ 
+-## Étape 3 — Créer et attendre
++Un accueil affiché confirme seulement la réponse de cette page. Vérifiez séparément compte, configuration et fonctions prévus ; les tests de population par formulaires n'établissent pas l'import des données d'exemple.
+ 
+-Vérifiez le déploiement, puis sélectionnez **Créer**. Attendez 5 à 10 minutes après qu'Azure a signalé la fin du déploiement : la VM doit encore initialiser VIVO, Solr, Tomcat et nginx.
++## Étape 4 — Terminer l'évaluation
+ 
+-## Étape 4 — Ouvrir VIVO
+-
+-Relevez le FQDN Azure créé pour la VM, puis ouvrez :
+-
+-```
+-https://<fqdn-azure>/
+-```
+-
+-Utilisez le FQDN plutôt que l'adresse IP publique. Le premier démarrage tente de provisionner le certificat TLS pour ce nom. Si HTTPS n'est pas prêt, attendez quelques minutes, puis consultez [[Certificat HTTPS / TLS|fr_HTTPS-TLS-Certificate]].
+-
+-L'affichage de la page d'accueil VIVO confirme que le parcours de déploiement de base fonctionne. Pour une vérification des services, consultez [[Vérification post-déploiement|fr_Post-Deployment-Verification]].
+-
+-## Étape 5 — Supprimer l'environnement d'évaluation
+-
+-Lorsque vous avez terminé, supprimez le groupe de ressources d'évaluation dans le portail Azure. Cette opération supprime la VM, l'adresse IP publique, le disque géré et les ressources associées, et arrête les frais ultérieurs.
++Avant toute suppression, confirmez que le groupe ne contient que des ressources d'évaluation jetables et préservez ce qui est nécessaire par une sauvegarde restaurable. Après autorisation, retirez ce groupe dédié, vérifiez la fin de la suppression et examinez ressources restantes et facturation. Les ressources hors de ce groupe, sauvegardes et stockage conservé peuvent continuer à être facturés. Consultez les [états et la facturation des VM Azure](https://learn.microsoft.com/fr-fr/azure/virtual-machines/states-billing).
+ 
+ ## Étapes suivantes
+ 
+-- Utilisez [[Déployer depuis le Marketplace|fr_Deploying-from-Marketplace]] pour un déploiement orienté production, le dimensionnement et la configuration de sécurité.
+-- Utilisez [[Chargement des données d'exemple|fr_Loading-Sample-Data]] seulement si vous conservez un environnement hors production pour poursuivre l'exploration.
+\ No newline at end of file
++- Consultez [[fr_Configuring-VIVO#exploitation-sauvegardes-et-coûts]] avant de conserver le service.
++- Utilisez [[fr_Loading-Sample-Data]] seulement sur une instance dédiée hors production.
+diff --git a/fr_SSH-Connection.md b/fr_SSH-Connection.md
+index fecb9963e109193bc5c32cd33a7fe3398a5ee569..b3a0aa4296b698aef0942756d6a22e6b3d695b57 100644
+--- a/fr_SSH-Connection.md
++++ b/fr_SSH-Connection.md
+@@ -43,7 +43,7 @@ ssh -i ~/.ssh/your-key.pem <nom-admin>@<ip-publique>
+ 
+ ## Obtenir l'adresse IP publique
+ 
+-Après le déploiement, trouvez l'adresse IP publique dans le portail Azure sous votre groupe de ressources, ou dans l'onglet **Outputs** du déploiement (`publicIPAddress`).
++Après le déploiement, relevez l'adresse prévue pour SSH dans la configuration réseau de la VM. Une IP publique ou une sortie de déploiement `publicIPAddress` dépend du parcours choisi ; un déploiement privé exige un accès réseau adapté. Vérifiez la règle NSG autorisant votre source d'administration.
+ 
+ ---
+ 
+diff --git a/fr_Support.md b/fr_Support.md
+index 268e5b37f6c3e0b02278b1477be656f2e31adfa2..aed6fe377230b4d966ec5bfb13918aa70e5d884b 100644
+--- a/fr_Support.md
++++ b/fr_Support.md
+@@ -15,12 +15,20 @@ Pour les problèmes spécifiques à cette offre Azure Marketplace VM (échecs de
+ 
+ Lors de la déclaration d'un problème, veuillez inclure :
+ 
++- La version d'image (par exemple 1.2.0), les versions VIVO/Vitro et le statut public ou préversion, sans les confondre
++- Le parcours de configuration réellement suivi (Marketplace/Custom data ou ARM direct)
+ - La région Azure et la taille de VM utilisées
+ - La sortie de `sudo cloud-init status --long`
+ - Les extraits de journaux pertinents de `/var/log/vivo-first-boot.log` ou `sudo journalctl -u tomcat --no-pager -n 50`
+ 
+ ---
+ 
++Relisez et expurgez toute sortie avant publication. Ne joignez ni secrets, mots de passe, clés privées, jetons, adresses IP, noms d'hôtes internes ni données personnelles. `make diag` peut afficher configuration et journaux ; ne collez pas sa sortie complète sans revue. La préparation d'un diagnostic n'autorise pas une suppression ou une réinitialisation.
++
++Les responsabilités de maintenance, certificats, sauvegardes et récupération sont décrites dans [[fr_Configuring-VIVO#exploitation-sauvegardes-et-coûts]]. Ne considérez pas un test réussi ou une certification Marketplace comme une garantie de conformité ou de capacité.
++
++---
++
+ ## Support de la communauté VIVO
+ 
+ Pour les questions sur la configuration de VIVO, la personnalisation de l'ontologie, l'ingestion de données ou le comportement de l'application, la communauté VIVO offre plusieurs canaux d'assistance :
+diff --git a/fr_Troubleshooting.md b/fr_Troubleshooting.md
+index 5210d9541e904dd4a1fb9e5851ba043f73d0f367..dabb620075d335b0bbdb4ce540d42e355c35a5ee 100644
+--- a/fr_Troubleshooting.md
++++ b/fr_Troubleshooting.md
+@@ -4,8 +4,8 @@
+ 
+ Problèmes courants rencontrés lors du déploiement et de l'exploitation de VIVO sur Azure Marketplace.
+ 
+-> **Lancez d'abord le diagnostic automatisé.** La commande `make diag` vérifie tous les services, les règles de pare-feu, le certificat TLS, Solr, le point de terminaison SPARQL et les journaux en une seule passe depuis votre poste de travail.
+-> → Voir [[fr_Post-Deployment-Verification#diagnostic-automatisé|Diagnostic automatisé]] pour la mise en place et l'utilisation.
++> **Lancez d'abord le diagnostic automatisé.** La commande `make diag` sonde les services, le pare-feu invité, l'expiration du certificat, Solr, le statut SPARQL et des journaux récents ; les sondes sont lancées depuis votre poste. Consultez leurs limites dans le guide de vérification.
++> → Voir [[Diagnostic automatisé|fr_Post-Deployment-Verification#diagnostic-automatisé]] pour la mise en place et l'utilisation.
+ 
+ ---
+ 
+@@ -18,9 +18,9 @@ VIVO_LANGUAGES: unbound variable
+ cloud-final.service: Failed
+ ```
+ 
+-**Cause :** La VM a été créée en dehors du modèle de déploiement Marketplace — les paramètres de configuration requis n'ont jamais été injectés.
++**Contexte historique :** D'anciens scripts pouvaient échouer sur des paramètres absents. L'implémentation 1.2.0 fournit des valeurs de secours ; cette erreur n'identifie pas à elle seule le mode de déploiement. Confirmez version d'image, configuration appliquée et script en échec dans les journaux.
+ 
+-**Correction :** Supprimez la VM et redéployez depuis la page de l'offre Azure Marketplace en utilisant le modèle de déploiement standard.
++**Action :** Examinez cloud-init et le journal d'initialisation, puis consultez l'éditeur avant une récupération. Préservez données et configuration existantes. Ne supprimez pas une VM et ne réinitialisez pas le marqueur de premier démarrage comme correction générale. Consultez [[fr_Deploying-from-Marketplace]] et [[fr_Configuring-VIVO]].
+ 
+ ---
+ 
+@@ -54,9 +54,9 @@ ssh -i ~/.ssh/your-key.pem azureuser@<public-ip>
+ "message": "The specified disk size 64 GB is less than the size of the corresponding disk in the VM image: 256 GB."
+ ```
+ 
+-**Cause :** Le modèle de déploiement d'une version précédente de l'offre définissait une taille de disque inférieure à celle requise par l'image. Ce problème a été corrigé.
++**Cause :** Le modèle de déploiement d'une version précédente de l'offre définissait une taille de disque inférieure à celle requise par l'image. Cet exemple historique ne démontre pas l'état de l'offre publique actuelle ni sa taille de disque requise.
+ 
+-**Correction :** Redéployez en utilisant la version actuelle de l'offre depuis Azure Marketplace.
++**Action :** Vérifiez la taille de disque OS exigée par l'image sélectionnée et retirez le réglage trop petit de la configuration de déploiement. Ne remplacez pas une VM existante et ne perdez pas de données sans plan de récupération ni autorisation.
+ 
+ ---
+ 
+@@ -77,9 +77,9 @@ ssh -i ~/.ssh/your-key.pem azureuser@<public-ip>
+ 
+ ## VIVO est accessible mais affiche le namespace example.org par défaut
+ 
+-**Cause :** Les paramètres de déploiement (`vivoNamespace`, `vivoAdminEmail`) ont été laissés à leurs valeurs par défaut.
++**Cause possible :** Les réglages prévus n'ont pas été fournis ou appliqués avant l'initialisation. Le namespace de secours de l'image est un exemple, pas une configuration institutionnelle.
+ 
+-**Correction :** Redéployez avec les valeurs de votre institution, ou mettez à jour manuellement `runtime.properties`. Voir [[fr_Configuring-VIVO]].
++**Action :** Comparez les réglages initiaux à `runtime.properties` actif. Si des données sont déjà chargées, modifier le namespace configuré ne migre pas leurs identifiants. Consultez [[fr_Configuring-VIVO]] avant le changement.
+ 
+ ---
+ 
+@@ -87,7 +87,7 @@ ssh -i ~/.ssh/your-key.pem azureuser@<public-ip>
+ 
+ **Symptôme :** Firefox/Chrome affiche « Risque de sécurité potentiel » ou « Votre connexion n'est pas privée » pour le FQDN.
+ 
+-**Cause :** certbot n'a pas réussi à obtenir un certificat Let's Encrypt lors du premier démarrage.
++**Causes possibles :** Aucun FQDN fourni, échec de la demande Certbot, certificat servi expiré, non reconnu ou pour un autre nom. Les essais 1.2.0 utilisaient un certificat autosigné ; ils n'établissent pas la confiance du navigateur.
+ 
+ **Diagnostic :**
+ 
+@@ -114,7 +114,7 @@ sudo tail -100 /opt/tomcat/logs/catalina.out
+ 
+ **Symptôme :**
+ 
+-La carte des compétences VIVO à `/vis/capabilitymap` charge son cadre mais n'affiche aucun nœud, même après le chargement des données d'exemple et avec plus de 400 documents dans Solr. La console du navigateur affiche :
++La carte des compétences VIVO à `/vis/capabilitymap` charge son cadre mais n'affiche aucun nœud, même après le chargement des données d'exemple et avec des données indexées dans Solr. La console du navigateur affiche :
+ 
+ ```
+ La ressource à l'adresse /visualizationAjax... a été bloquée en raison d'un type MIME
+@@ -123,14 +123,14 @@ La ressource à l'adresse /visualizationAjax... a été bloquée en raison d'un
+ 
+ **Cause :**
+ 
+-L'endpoint `/visualizationAjax` de VIVO retourne `Content-Type: text/html` pour toutes les réponses, y compris les réponses JSONP (dont le corps est du JavaScript de la forme `ipretResults({...})`). Nginx applique `X-Content-Type-Options: nosniff` de manière globale. Les navigateurs respectent cette directive et bloquent l'exécution du rappel JSONP, ce qui rend la carte vide.
++Dans les déploiements historiques affectés, l'endpoint `/visualizationAjax` de VIVO retournait `Content-Type: text/html` pour toutes les réponses, y compris les réponses JSONP (dont le corps est du JavaScript de la forme `ipretResults({...})`). Nginx applique `X-Content-Type-Options: nosniff` de manière globale. Les navigateurs respectent cette directive et bloquent l'exécution du rappel JSONP, ce qui rend la carte vide.
+ 
+ **Étape 1 — Vérifier que les données sont présentes côté serveur**
+ 
+ Avant de corriger nginx, confirmez que le backend retourne des données :
+ 
+ ```bash
+-curl -sk "https://<fqdn>/visualizationAjax?vis=capabilitymap&query=Rhetoric&callback=ipretResults&noCacheIE=1" | head -c 200
++curl -sS "https://<fqdn>/visualizationAjax?vis=capabilitymap&query=Rhetoric&callback=ipretResults&noCacheIE=1" | head -c 200
+ ```
+ 
+ Résultat attendu (JSONP) :
+@@ -138,21 +138,21 @@ Résultat attendu (JSONP) :
+ ipretResults({"researchers":[...], "researchAreas":[...]})
+ ```
+ 
+-Si la sortie est du HTML vide, les données d'exemple n'ont pas été chargées — consultez [[fr_Loading-Sample-Data]].
++Si la sortie est du HTML, examinez statut, authentification et erreurs applicatives avant de conclure à l'absence de données — consultez [[fr_Loading-Sample-Data]].
+ 
+ **Étape 2 — Vérifier l'en-tête Content-Type**
+ 
+ ```bash
+-curl -sk -I "https://<fqdn>/visualizationAjax?vis=capabilitymap&query=Rhetoric&callback=ipretResults&noCacheIE=1" \
++curl -sS -I "https://<fqdn>/visualizationAjax?vis=capabilitymap&query=Rhetoric&callback=ipretResults&noCacheIE=1" \
+   | grep -i content-type
+ ```
+ 
+-- Retourne `text/html` → correction nginx requise (voir Étape 3)
++- Retourne `text/html` → examiner réponse et configuration active avant de choisir une correction (Étape 3)
+ - Retourne `application/javascript` → nginx est déjà corrigé, vérifiez la console du navigateur pour d'autres erreurs
+ 
+-**Étape 3 — Appliquer la correction nginx**
++**Étape 3 — Examiner le contournement nginx historique**
+ 
+-Ajoutez un bloc `location /visualizationAjax {}` dédié dans **chaque** bloc `server { listen 443 ... }` du fichier `/etc/nginx/conf.d/vivo.conf` :
++L'image 1.2.0 inclut déjà le contournement ci-dessous. Pour une ancienne instance affectée, examinez et sauvegardez d'abord la configuration NGINX active. N'ajoutez pas de location en double. Avec un administrateur, envisagez un bloc `location /visualizationAjax {}` dédié dans le bloc `server { listen 443 ... }` du fichier `/etc/nginx/conf.d/vivo.conf` :
+ 
+ ```nginx
+ # Correctif JSONP — VIVO retourne text/html pour /visualizationAjax
+@@ -172,7 +172,7 @@ location /visualizationAjax {
+ }
+ ```
+ 
+-> **Pourquoi pas de `X-Content-Type-Options: nosniff` ici ?** Lorsqu'un bloc `location` définit un `add_header`, il **remplace** tous les `add_header` hérités des blocs parents (règle d'héritage nginx). Le bloc ci-dessus omet intentionnellement `nosniff` pour permettre au navigateur d'accepter `Content-Type: application/javascript`. Les autres en-têtes de sécurité (HSTS, X-Frame-Options, Referrer-Policy) sont explicitement répétés pour maintenir la posture de sécurité.
++> **Contournement historique :** Ce bloc reproduit le type MIME JavaScript et les en-têtes locaux de l'image. Retirer `nosniff` n'est pas une exigence générale lorsque le bon type MIME est servi. Selon les [règles standard d'héritage NGINX](https://nginx.org/en/docs/http/ngx_http_headers_module.html#add_header), des directives `add_header` locales affectent l'héritage ; vérifiez version installée et configuration active plutôt que d'en faire une politique générale de sécurité.
+ 
+ Après modification, validez et rechargez nginx :
+ 
+@@ -182,8 +182,4 @@ sudo nginx -t && sudo systemctl reload nginx
+ 
+ Relancez la vérification de l'Étape 2 — `content-type: application/javascript; charset=UTF-8` confirme que la correction est active.
+ 
+-> Ce correctif est inclus dans le modèle d'image Packer (`packer/provisioners/04-configure-nginx.sh`) et la configuration nginx Docker (`docker/nginx/vivo.conf`) depuis le commit `f92ba3f`. Les nouveaux déploiements depuis ces sources ne sont pas affectés.
+-
+----
+-
+-*Page originale (English) : [[Troubleshooting]]*
++> Le contournement est présent dans l'image 1.2.0. Sa présence ne valide pas toutes les visualisations ; confirmez la réponse et le comportement navigateur avec vos données.

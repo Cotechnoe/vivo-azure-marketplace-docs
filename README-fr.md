@@ -1,29 +1,24 @@
 # VIVO sur Azure Marketplace
 
-> **Version de l'image Marketplace :** VIVO [1.16.0](https://github.com/vivo-project/VIVO/releases/tag/vivo-1.16.0)
-
 > 🇬🇧 This page is also available in English: [README.md](README.md)
 
-**VIVO** est une plateforme open source de mise en réseau de la recherche qui crée une cartographie connectée et exploitable des travaux scientifiques de votre institution. Elle permet aux organisations académiques et de recherche de :
+**VIVO** est une plateforme open source de mise en réseau de la recherche qui relie les profils de chercheurs, les organisations, les publications et les activités scientifiques dans un graphe de connaissances. Les institutions peuvent consulter les profils, rechercher les contenus indexés et exploiter les données RDF.
 
-- **Connecter** chercheurs, publications, subventions, cours et organisations dans un graphe sémantique unifié
-- **Découvrir** des opportunités de collaboration et des expertises dans différentes disciplines
-- **Partager** des données via des standards ouverts (Linked Data / RDF), interopérables avec des sources externes comme ORCID, CrossRef et Wikidata
+VIVO est développé par sa communauté avec le soutien de [LYRASIS](https://www.lyrasis.org). Les sources et identifiants externes comme ORCID, Crossref et Wikidata nécessitent une intégration de données adaptée ; cette image ne les connecte pas automatiquement. Les usages d'IA ou de génération augmentée par récupération (RAG) nécessitent également une intégration ou un développement supplémentaire.
 
-VIVO est développé par la communauté et soutenu par [LYRASIS](https://www.lyrasis.org), avec plus de 150 instances déployées dans plus de 25 pays à travers le monde.
+## Image 1.2.0 et offre publique
 
----
+L'**image 1.2.0** contient **Ubuntu 24.04 LTS**, **VIVO 1.16.0** et **Vitro 1.16.0**, avec Java 21, Tomcat 9, Solr 9, Jena TDB1 et NGINX. Ces composants sont préinstallés ; un administrateur configure et maintient l'instance déployée.
 
-## VIVO sur Microsoft Azure Marketplace
+Lors de la revue de l'éditeur du 14 novembre 2026, l'image 1.2.0 était en préversion Marketplace certifiée, avec Go live en attente. La fiche publique décrivait encore Ubuntu 22.04. Confirmez l'offre, le plan et la version d'image sélectionnés au déploiement ; ni la version de l'application VIVO ni le numéro affiché dans la fiche n'identifient la version d'image. Consultez [le statut et les limites de vérification](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/fr_Home#image-120--statut-et-vérifications).
 
-Cette offre Azure Marketplace déploie une instance VIVO entièrement configurée sur une machine virtuelle Azure dédiée. Le déploiement est automatisé via un modèle ARM qui gère :
+## Déployer et exploiter VIVO
 
-- Le provisionnement de la VM (Ubuntu, Standard D2s v3 ou supérieur)
-- L'installation de la pile VIVO + Apache Solr + Tomcat + Nginx
-- La configuration spécifique à l'institution (espace de noms, identifiants admin, paramètres de langue)
-- La terminaison TLS via Nginx avec une tentative de provisionnement du certificat Let's Encrypt au premier démarrage
+Le parcours de configuration prévu pour l'image 1.2.0 utilise **Avancé → Données personnalisées (Custom data)**, d'après l'implémentation de l'image ; les essais archivés ne valident pas l'assistant Marketplace complet. Le [guide de déploiement](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/fr_Deploying-from-Marketplace) distingue ce parcours du déploiement ARM direct. Un modèle ARM ou une définition d'interface de référence ne démontre pas le fonctionnement de l'assistant VM publié.
 
-Après le déploiement, utilisez le FQDN Azure retourné pour accéder à VIVO et vérifier TLS. L'émission du certificat peut échouer; un certificat fiable pour ce nom peut ne pas être disponible avant la fin du provisionnement.
+NGINX fournit HTTPS et redirige les requêtes HTTP ordinaires vers HTTPS. Le certificat initial est autosigné ; Let's Encrypt n'est tenté que si le déploiement fournit un FQDN et si Certbot est disponible. Les essais archivés de la 1.2.0 ne démontrent pas l'obtention d'un certificat reconnu par le navigateur. Suivez le [guide TLS](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/fr_HTTPS-TLS-Certificate) pour obtenir et vérifier un certificat adapté au déploiement.
+
+Dimensionnez la VM et les disques selon vos données, l'indexation et l'usage ; les contrôles réalisés n'établissent ni taille minimale de production ni capacité de charge. Vérifiez le tarif du plan Marketplace et les coûts Azure de calcul, stockage, réseau et sauvegarde avant de déployer. Le contrôle d'accès, les correctifs, les certificats, les sauvegardes et la récupération relèvent de l'administration. Un déploiement dans un abonnement Azure ne garantit pas à lui seul la résidence des données ni la conformité réglementaire ; évaluez les flux de données et les services externes pour votre institution.
 
 ---
 
@@ -47,6 +42,8 @@ La documentation complète de déploiement et d'administration est disponible da
 ---
 
 ## Notes de version — VIVO 1.16.0
+
+Ce résumé historique de la version amont concerne VIVO 1.16.0 ; il ne décrit pas de nouvelles fonctions de l'image 1.2.0 ni une certification fonctionnelle de l'application packagée.
 
 > Diff complet : [vivo-1.15.1...vivo-1.16.0](https://github.com/vivo-project/VIVO/compare/vivo-1.15.1...vivo-1.16.0) (98 commits, 212 fichiers modifiés)
 
