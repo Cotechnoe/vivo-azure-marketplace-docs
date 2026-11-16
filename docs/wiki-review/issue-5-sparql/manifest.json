@@ -1,0 +1,20 @@
+{
+  "purpose": "review-only; publish after the matching diagnostic correction is integrated",
+  "source_repository": "https://github.com/Cotechnoe/vivo-azure-marketplace-docs.wiki.git",
+  "source_base_commit": "4af5f0f3727151493de240b05a9de8dbf23dc635",
+  "source_default_branch": "master",
+  "changed_page_count": 2,
+  "pages": [
+    {
+      "path": "Post-Deployment-Verification.md",
+      "base_sha256": "bea880a9c14e65d7691ddd7758a48081cc4ffb10eb2daf82cb8b097ecb6eaa7e",
+      "proposed_sha256": "a03c16993790e78cb29c8628067e90481becd7bb93e00f238d5be5c06966560a"
+    },
+    {
+      "path": "fr_Post-Deployment-Verification.md",
+      "base_sha256": "b640dbda97fc9b1eb0b89d3d0805ef7617cfe7622374401a92af765c3e22b47b",
+      "proposed_sha256": "5ad3bbca861a52748a9e202c5ab42408ae8e6ff3737151a2f676853312733dc1"
+    }
+  ],
+  "patch_sha256": "54b22197f1487fabaa2e671b9a7cae676f3e61358d3b06b7462a1d395db8272b"
+}

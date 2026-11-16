@@ -18,7 +18,7 @@
 #   7. TLS certificate expiry (openssl)
 #   8. UFW firewall rules (ports 443/80/22/8983/8080)
 #   9. Solr core vivocore ping
-#  10. SPARQL endpoint probe (public query — no credentials required)
+#  10. SPARQL endpoint probe (no credentials; protected access is expected)
 #  11. Java heap settings (TOMCAT_HEAP_MIN / TOMCAT_HEAP_MAX)
 #  12. Recent error lines in first-boot and tomcat logs
 #
@@ -92,6 +92,75 @@ remote() {
         -o ConnectTimeout=10 \
         -o BatchMode=yes \
         "${SSH_USER}@${VM_IP}" "$@" 2>/dev/null
+}
+
+# Check only the final HTTP response's WWW-Authenticate fields. Split challenges
+# outside quoted strings so a comma or the word Basic inside a realm cannot
+# impersonate a Basic challenge. RFC 7617 requires a realm parameter:
+# https://www.rfc-editor.org/rfc/rfc7617.html#section-2
+has_basic_challenge() {
+    awk '
+        BEGIN {
+            token = "[!#$%&\047*+.^_`|~0-9A-Za-z-]+"
+            parameter = "^" token "[ \t]*=[ \t]*(" token "|\"([^\"\\\\]|\\\\.)*\")[ \t]*$"
+        }
+        function basic_challenge(value, parts, n, i, c, quoted, escaped,
+                                 part, scheme, basic, valid, realms, name) {
+            n = 1
+            for (i = 1; i <= length(value); i++) {
+                c = substr(value, i, 1)
+                if (c == "," && !quoted) {
+                    n++
+                    continue
+                }
+                parts[n] = parts[n] c
+                if (escaped) escaped = 0
+                else if (quoted && c == "\\") escaped = 1
+                else if (c == "\"") quoted = !quoted
+            }
+            if (quoted || escaped) return 0
+            for (i = 1; i <= n; i++) {
+                part = parts[i]
+                sub(/^[ \t]+/, "", part)
+                sub(/[ \t]+$/, "", part)
+                if (part == "") continue
+                if (part !~ ("^" token "[ \t]*=")) {
+                    if (basic && valid && realms == 1) return 1
+                    basic = 0
+                    valid = 1
+                    realms = 0
+                    if (part !~ ("^" token "([ \t]+|$)")) continue
+                    scheme = part
+                    sub(/[ \t].*/, "", scheme)
+                    basic = (tolower(scheme) == "basic")
+                    sub("^" token "[ \t]*", "", part)
+                }
+                if (basic) {
+                    if (part !~ parameter) {
+                        valid = 0
+                        continue
+                    }
+                    name = part
+                    sub(/[ \t]*=.*/, "", name)
+                    if (tolower(name) == "realm") realms++
+                }
+            }
+            return basic && valid && realms == 1
+        }
+        {
+            sub(/\r$/, "")
+            if ($0 ~ /^HTTP\/[0-9.]+[ \t]+/) {
+                challenges = ""
+                in_headers = 1
+            } else if ($0 == "") {
+                in_headers = 0
+            } else if (in_headers && tolower($0) ~ /^www-authenticate:[ \t]*/) {
+                sub(/^[^:]+:[ \t]*/, "")
+                challenges = challenges (challenges == "" ? "" : ",") $0
+            }
+        }
+        END { exit !basic_challenge(challenges) }
+    '
 }
 
 # ── Verify SSH connectivity before running checks ────────────────
@@ -259,16 +328,32 @@ else
 fi
 
 # ────────────────────────────────────────────────────────────────
-# CHECK 10 — SPARQL endpoint probe (public, no credentials)
+# CHECK 10 — SPARQL endpoint probe (unauthenticated; access may be protected)
 # ────────────────────────────────────────────────────────────────
 section "10. SPARQL endpoint"
-SPARQL_CODE=$(remote "curl -sk -o /dev/null -w '%{http_code}' -X POST https://localhost/api/sparqlQuery \
+if SPARQL_RESPONSE=$(remote "curl -sk --connect-timeout 10 --max-time 30 -D - -o /dev/null -w '\n%{http_code}' -X POST https://localhost/api/sparqlQuery \
     --data-urlencode 'query=SELECT ?s WHERE { ?s a <http://www.w3.org/2002/07/owl#Class> } LIMIT 1' \
-    -H 'Accept: application/sparql-results+json' 2>/dev/null || echo ERR")
-if [[ "${SPARQL_CODE}" == "200" || "${SPARQL_CODE}" == "403" ]]; then
-    ok "SPARQL endpoint responded (HTTP ${SPARQL_CODE})"
+    -H 'Accept: application/sparql-results+json' 2>/dev/null"); then
+    SPARQL_CODE="${SPARQL_RESPONSE##*$'\n'}"
+    SPARQL_HEADERS="${SPARQL_RESPONSE%$'\n'*}"
+    case "${SPARQL_CODE}" in
+        200)
+            ok "SPARQL endpoint responded (HTTP 200); query results not validated"
+            ;;
+        403)
+            warn "SPARQL endpoint reachable, access forbidden (HTTP 403); authenticated query not tested"
+            ;;
+        401)
+            if printf '%s\n' "${SPARQL_HEADERS}" | has_basic_challenge; then
+                warn "SPARQL endpoint reachable, Basic authentication required (HTTP 401); authenticated query not tested"
+            else
+                fail "SPARQL endpoint returned HTTP 401 without a valid Basic challenge"
+            fi
+            ;;
+        *) fail "SPARQL endpoint returned an unexpected response (HTTP ${SPARQL_CODE})" ;;
+    esac
 else
-    fail "SPARQL endpoint unreachable (HTTP ${SPARQL_CODE})"
+    fail "SPARQL endpoint probe failed (SSH or curl connection/transfer error)"
 fi
 
 # ────────────────────────────────────────────────────────────────

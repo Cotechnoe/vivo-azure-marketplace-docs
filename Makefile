@@ -17,7 +17,7 @@
 #   make certbot IP=<VM_IP> FQDN=<fqdn> EMAIL=<email> SSH_KEY=~/.ssh/my_key
 #   make help
 # ================================================================
-.PHONY: help diag set-dns certbot
+.PHONY: help test diag set-dns certbot
 
 SCRIPTS_DIR := scripts
 SSH_USER    ?= azureuser
@@ -37,6 +37,12 @@ help: ## Show this help
 	@echo "$(GREEN)  VIVO Marketplace — VM diagnostic tools          $(NC)"
 	@echo "$(BLUE)══════════════════════════════════════════════════$(NC)"
 	@awk 'BEGIN {FS = ":.*##"} /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0,5) } /^[a-zA-Z_-]+:.*?##/ { printf "  $(GREEN)%-20s$(NC) %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+
+##@ Tests
+
+test: ## Run offline diagnostic and TLS tests (mocked SSH/curl)
+	@bash tests/test-vivo-diag.sh
+	@bash tests/test-certbot.sh
 
 ##@ Diagnostic
 

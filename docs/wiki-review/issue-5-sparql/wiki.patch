@@ -1,0 +1,60 @@
+diff --git a/Post-Deployment-Verification.md b/Post-Deployment-Verification.md
+index 645b1a3f5453727f37a922be225c10e00678add1..555d4c21d2f8c34ebb44a18755d38ed1a1551561 100644
+--- a/Post-Deployment-Verification.md
++++ b/Post-Deployment-Verification.md
+@@ -37,7 +37,7 @@ The script covers **12 diagnostic sections** and prints a colour-coded summary:
+ | 7 | TLS certificate | Expiry text from local NGINX; no chain, hostname or expiry-threshold validation |
+ | 8 | UFW firewall | Textual DENY entries for 8983/8080; not an effective NSG audit |
+ | 9 | Solr ping | `vivocore` core responds OK (tested from inside the VM) |
+-| 10 | SPARQL endpoint | `/api/sparqlQuery` responds (200 or 403 — both acceptable) |
++| 10 | SPARQL endpoint | HTTP 200 response; 403 or 401 with a valid Basic challenge reported as WARN; query results not validated |
+ | 11 | Tomcat heap | Heap settings found in files, not workload suitability |
+ | 12 | Error scan | Recent matching log lines reported as warnings; not an exhaustive scan |
+ 
+@@ -53,12 +53,15 @@ The script covers **12 diagnostic sections** and prints a colour-coded summary:
+ > **Expected WARNs:**
+ > - *First-boot marker absent* — downgraded to WARN when the log confirms the boot completed. The fallback is a log-text heuristic; confirm completion and investigate a missing marker before relying on initialization.
+ > - *`/data` not found* — root filesystem usage is reported as a fallback. This does not prove the intended data disk is available; investigate before loading data.
++> - *SPARQL access restricted* — a 403 or a 401 with a valid Basic challenge shows that the endpoint responded; an authenticated query has not been tested.
+ 
+ ---
+ 
+ ## Interpret the diagnostic limits
+ 
+-A 200 or 403 SPARQL status is accepted by this helper, without validating authenticated query results. A 401 with an authentication challenge can indicate a protected endpoint, but the current helper reports it as FAIL. Inspect status, challenge and access policy; do not make SPARQL public just to clear a diagnostic failure.
++The updated helper accepts an HTTP 200 response without validating query results. HTTP 403 and HTTP 401 with a valid `WWW-Authenticate: Basic` challenge, including its required `realm` parameter, are reported as WARN: the endpoint responded, but an authenticated query has not been tested. A 401 without a valid Basic challenge, an unexpected HTTP status or an SSH/curl connection or transfer error remains a FAIL.
++
++Older helper revisions accept only 200/403 and report 401 as FAIL. Compare your local script with the current repository before interpreting the result. Inspect status, challenge and access policy; do not make SPARQL public just to clear a diagnostic failure.
+ 
+ HTTP/HTTPS probes run **inside the VM**. They do not validate external NSG reachability, DNS, browser trust or backup recoverability. `curl -k` bypasses certificate checks; a successful page response with that option is not a TLS trust check. Review and redact the diagnostic output before sharing it, as it prints addresses, configuration and log excerpts.
+ 
+diff --git a/fr_Post-Deployment-Verification.md b/fr_Post-Deployment-Verification.md
+index b348481dbc3b8c99db517b2b0aa615555180cc29..43a8999632da749ecb86d16ea3b3114fe3883469 100644
+--- a/fr_Post-Deployment-Verification.md
++++ b/fr_Post-Deployment-Verification.md
+@@ -37,7 +37,7 @@ Le script couvre **12 rubriques de diagnostic** et affiche un résumé en couleu
+ | 7 | Certificat TLS | Texte d'expiration de NGINX local ; sans validation de chaîne, de nom ou de seuil d'expiration |
+ | 8 | Pare-feu UFW | Entrées DENY textuelles pour 8983/8080 ; pas un audit NSG effectif |
+ | 9 | Solr ping | Le cœur `vivocore` répond OK (testé depuis la VM) |
+-| 10 | Endpoint SPARQL | `/api/sparqlQuery` répond (200 ou 403 — les deux sont acceptables) |
++| 10 | Endpoint SPARQL | Réponse HTTP 200 ; 403 ou 401 avec défi Basic valide signalés en WARN ; résultat de requête non validé |
+ | 11 | Heap Tomcat | Réglages de tas trouvés dans les fichiers ; pas leur adéquation à la charge |
+ | 12 | Scan erreurs | Lignes récentes correspondantes signalées comme avertissements ; pas un audit exhaustif |
+ 
+@@ -53,12 +53,15 @@ Le script couvre **12 rubriques de diagnostic** et affiche un résumé en couleu
+ > **WARNs attendus :**
+ > - *Marqueur premier boot absent* — rétrogradé en WARN si le journal confirme la fin du boot. Ce repli repose sur une heuristique textuelle ; confirmez la fin et examinez le marqueur absent avant de vous fier à l'initialisation.
+ > - *`/data` introuvable* — l'utilisation de la racine est affichée en remplacement. Cela ne prouve pas que le disque de données prévu est disponible ; examinez le problème avant de charger des données.
++> - *Accès SPARQL restreint* — un 403 ou un 401 avec défi Basic valide indique que le point d’accès a répondu ; aucune requête authentifiée n’a été testée.
+ 
+ ---
+ 
+ ## Interpréter les limites du diagnostic
+ 
+-L'outil accepte un statut SPARQL 200 ou 403 sans valider le résultat d'une requête authentifiée. Un 401 avec défi d'authentification peut indiquer un point d'accès protégé, mais l'outil actuel le signale comme FAIL. Examinez statut, défi et politique d'accès ; ne rendez pas SPARQL public pour supprimer un échec de diagnostic.
++L’outil corrigé accepte une réponse HTTP 200 sans valider le résultat de la requête. Un HTTP 403 ou un HTTP 401 avec défi `WWW-Authenticate: Basic` valide, comprenant le paramètre obligatoire `realm`, est signalé en WARN : le point d’accès a répondu, mais aucune requête authentifiée n’a été testée. Un 401 sans défi Basic valide, un statut HTTP inattendu ou une erreur de connexion ou de transfert SSH/curl reste un FAIL.
++
++Les anciennes versions de l’outil n’acceptent que 200/403 et signalent 401 comme FAIL. Comparez votre script local au dépôt courant avant d’interpréter le résultat. Examinez statut, défi et politique d’accès ; ne rendez pas SPARQL public pour supprimer un échec de diagnostic.
+ 
+ Les sondes HTTP/HTTPS s'exécutent **dans la VM**. Elles ne valident ni accès NSG externe, ni DNS, ni confiance du navigateur, ni récupération des sauvegardes. `curl -k` contourne la vérification du certificat ; une page reçue ainsi ne prouve pas la confiance TLS. Relisez et expurgez la sortie du diagnostic avant partage : elle affiche adresses, configuration et extraits de journaux.
+ 
