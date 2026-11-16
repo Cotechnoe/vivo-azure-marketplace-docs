@@ -3,7 +3,7 @@
 **Publisher:** Cotechnoe inc.  
 **Contact:** support@cotechnoe.com  
 **Effective Date:** 2026-01-01  
-**Last Updated:** 2026-05-01
+**Last Updated:** 2026-11-16
 
 ---
 
@@ -13,7 +13,7 @@ This privacy policy applies to all Azure Marketplace virtual machine offers publ
 by Cotechnoe inc., including:
 
 - **Semantic MediaWiki on Azure Virtual Machines** (`cotechnoe.smw-knowledge-base`)
-- **VIVO Research Profiles on Azure Virtual Machines** (`cotechnoe.vivo-knowledge-graph`)
+- **VIVO Research Profiles on Azure Virtual Machines** (`cotechnoe.vivo-research-profiles`)
 
 It describes what data is collected, how it is used, and how you can contact us
 with privacy-related questions.

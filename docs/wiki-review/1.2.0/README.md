@@ -1,8 +1,8 @@
 # Image 1.2.0 — Wiki review package
 
-This directory contains a **review copy**, not an additional deployment guide or the published Wiki. The proposed pages keep their existing English/French filenames and Wiki link syntax. Merging this repository's pull request does **not** publish these pages to the separate GitHub Wiki repository.
+This directory preserves the **review snapshot approved for PR #6**, not an additional deployment guide or the current published Wiki. The proposed pages keep their existing English/French filenames and Wiki link syntax. Merging this repository's pull request does **not** publish these pages to the separate GitHub Wiki repository.
 
-Related tracking: [documentation issue #5](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/issues/5). That issue remains open for delivery and outstanding validations.
+Related tracking: [documentation issue #5](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/issues/5). That issue tracks remaining corrections and validations separately from the completed Wiki publication.
 
 ## Review contents
 
@@ -12,7 +12,7 @@ Related tracking: [documentation issue #5](https://github.com/Cotechnoe/vivo-azu
 - [English post-deployment checks](pages/Post-Deployment-Verification.md) and [French post-deployment checks](pages/fr_Post-Deployment-Verification.md): diagnostic and first-login test limits.
 - The other files in [pages/](pages/) complete the eleven language pairs. `_Sidebar.md` is copied unchanged to preserve the navigation context.
 - [wiki.patch](wiki.patch) contains the actual changes to 22 Wiki pages, relative to the base below.
-- [manifest.json](manifest.json) records the base commit and SHA-256 digests of the base/proposed pages and patch. Copies in this package are byte-for-byte identical to the proposed local Wiki files.
+- [manifest.json](manifest.json) records the base commit and SHA-256 digests of the base/proposed pages and patch. Copies in this package are byte-for-byte identical to the approved proposal published in Wiki commit `d84822e99243de702333806971bd4185a52a4427`. They are historical snapshots; later Wiki corrections are recorded separately below.
 
 ## Wiki base and later integration
 
@@ -24,7 +24,13 @@ Before a separately authorized Wiki integration, re-read the Wiki's remote state
 
 The preparation of this PR verifies the patch in a temporary repository created from the recorded base and compares every resulting page with the snapshots. It performs no Wiki push. Publication uses the separate [GitHub Wiki Git workflow](https://docs.github.com/en/communities/documenting-your-project-with-wikis/adding-or-editing-wiki-pages#adding-or-editing-wiki-pages-locally) only after the applicable authorization.
 
-Until a separately authorized Wiki publication is verified, the root README links for image 1.2.0 point to the proposed pages in this review package, including the release-status anchors. Both README files label these pages as review copies and identify the published Wiki as earlier guidance. Merging the README update therefore does not depend on the Wiki changing at the same time. After publication, verify the rendered Wiki, language navigation and anchors before switching the README links back to the published pages in a separate change; a repository preview is not the Wiki renderer.
+## Publication record — 16 November 2026
+
+The approved pages were published separately to Wiki `master` in commit `d84822e99243de702333806971bd4185a52a4427`, after checking the remote base, patch and all 23 page digests. Commit `4af5f0f3727151493de240b05a9de8dbf23dc635` then corrected one navigation-table row in English Home: Wiki-link separators had prevented the two quick-start links from rendering. The snapshots, patch and manifest in this package remain unchanged.
+
+The [English Wiki](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki) and [French Wiki](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/fr_Home) were checked in their actual GitHub rendering: 22 pages with expected titles, internal links, language navigation and the relevant anchors. The root README links now point to those published pages. This documentation publication does not establish that image 1.2.0 is live in Marketplace.
+
+[Publication evidence and remaining work in #5](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/issues/5#issuecomment-6911984873).
 
 ## Validation and limits
 
@@ -36,4 +42,4 @@ Until a separately authorized Wiki publication is verified, the root README link
 - Four current upstream sample RDF files parsed, without import into VIVO.
 - The 14 November 2026 external-link pass plus the two Azure Custom data references checked 51 URLs: 31 succeeded, 19 returned 403 and one timed out. Blocked responses are not treated as deleted links.
 
-The original image tests do not establish browser certificate trust, new-account first-login/password-change behavior, general VIVO functional correctness, backup recovery or workload capacity. Partner Center certification reported by the publisher is distinct from the deferred CTT report. The policy file, operational scripts, ARM and Partner Center are outside this revision.
+The original image tests do not establish browser certificate trust, new-account first-login/password-change behavior, general VIVO functional correctness, backup recovery or workload capacity. Partner Center certification reported by the publisher is distinct from the deferred CTT report. The policy file, operational scripts, ARM and Partner Center were outside the revision preserved in these snapshots. Follow-up corrections are tracked separately in #5.
