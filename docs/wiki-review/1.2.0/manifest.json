@@ -1,0 +1,148 @@
+{
+  "purpose": "review-only; does not publish the GitHub wiki",
+  "source_repository": "https://github.com/Cotechnoe/vivo-azure-marketplace-docs.wiki.git",
+  "source_base_commit": "575d285ca184544d7da98273005653f09c6ee522",
+  "source_default_branch": "master",
+  "changed_page_count": 22,
+  "pages": [
+    {
+      "path": "Configuring-VIVO.md",
+      "changed": true,
+      "base_sha256": "61d6a7ed059859da0538942c72ec048d757dc13f7f38f5f7595cf2d5832abc1e",
+      "proposed_sha256": "92e12832c4ad38d4e9a923395f8cb2a4b40845f2c27221a17d90bcbd4fee0d96"
+    },
+    {
+      "path": "Deploying-from-Marketplace.md",
+      "changed": true,
+      "base_sha256": "8ff13383752665b6620d0d8dac0ea2e8312db2cde97e3ee1cf264de3913591a1",
+      "proposed_sha256": "4c956d32fd8d1f19f88e514a447befd2c973b1e06e954fc585e55491b101cc9b"
+    },
+    {
+      "path": "Exploring-VIVO.md",
+      "changed": true,
+      "base_sha256": "6fc3805009d97b73084be55a19c2801ee06eb1a5fda5c4e5fd7d293a21c9f2da",
+      "proposed_sha256": "5e57439b91c6f8fd9543963bc91328fd8096c377ad5ca723711c6bb7c57fadb7"
+    },
+    {
+      "path": "HTTPS-TLS-Certificate.md",
+      "changed": true,
+      "base_sha256": "bfe6d57253b29238ad10c0bb09d3e65fac8de328346a9e386b219a4108dc24af",
+      "proposed_sha256": "7ba9f8b8882806e8494545a3f7c73d43298b63d7bc06c7143e6faeb00b575e09"
+    },
+    {
+      "path": "Home.md",
+      "changed": true,
+      "base_sha256": "6e597d52e49d0c17f0488293b7124d073d0cb9db851e3c08183f3843068d94be",
+      "proposed_sha256": "1e6eb8445953066dacc2a6d39510f10a8f9b0ba3596a939dd47ee15c4e6a1ebb"
+    },
+    {
+      "path": "Loading-Sample-Data.md",
+      "changed": true,
+      "base_sha256": "9cb7fb275608171775153aceebf83dd89a301168cd8a1479e9869ef4b819f213",
+      "proposed_sha256": "5841b5cd7923d88210db6ae0168507596ecbd053e62706200913bbdcfd2905e1"
+    },
+    {
+      "path": "Post-Deployment-Verification.md",
+      "changed": true,
+      "base_sha256": "fbddea5e67dccf9126158c145b0c0467fe5fcfc591aec21f45432f6769cfa158",
+      "proposed_sha256": "bea880a9c14e65d7691ddd7758a48081cc4ffb10eb2daf82cb8b097ecb6eaa7e"
+    },
+    {
+      "path": "Quick-Start-Evaluation.md",
+      "changed": true,
+      "base_sha256": "267bb33fe5825d80518c98b78bd3db5b89f8b49da46f5e17cab74ec1ddcd4f3f",
+      "proposed_sha256": "ca4224f6495f6f2fc8b4d30acc9f7eec2b3437e5352f25bbff91d9dd89774cc1"
+    },
+    {
+      "path": "SSH-Connection.md",
+      "changed": true,
+      "base_sha256": "ca470c93f0cd4df0f1950950f59691bfdc51e8eaeb25af6c00073e3d71fa9d47",
+      "proposed_sha256": "c03de24ccdf455fbfadf7a508192f3883bac7d7c2fe6d70a4f6543e7069a46bf"
+    },
+    {
+      "path": "Support.md",
+      "changed": true,
+      "base_sha256": "f3efd870ce47d7869fc9ff281ea16701725f9d0ab2600b431ac44ad9dfd37292",
+      "proposed_sha256": "03a05c5c4d4f88acb22095b139a39a487868141b36f02000a06665549ef17dd6"
+    },
+    {
+      "path": "Troubleshooting.md",
+      "changed": true,
+      "base_sha256": "c8c08d3df0007e0ea8d09f10e720d68511cec93e8344236f7a3b86dcc2b0dd00",
+      "proposed_sha256": "8e8bd02998977f54de618cda2bf23b46612432e14ca40e8cacfeb9f5b13e8a31"
+    },
+    {
+      "path": "_Sidebar.md",
+      "changed": false,
+      "base_sha256": "c5301b32774976d34ef6a3cc7ac59797d80c326d7f1108e131804471a1865bf5",
+      "proposed_sha256": "c5301b32774976d34ef6a3cc7ac59797d80c326d7f1108e131804471a1865bf5"
+    },
+    {
+      "path": "fr_Configuring-VIVO.md",
+      "changed": true,
+      "base_sha256": "bc19cd68a55561b2db554c1df44d737ca9aad62fe655cd29e401a6a427beb59d",
+      "proposed_sha256": "26ea9f53c00a3009136029ff6dba7e59cdf85455352bd76fe24e14f74f691559"
+    },
+    {
+      "path": "fr_Deploying-from-Marketplace.md",
+      "changed": true,
+      "base_sha256": "73f4549b3ed6f89476e5c8c4d3753b0b41055b4145458d7505de16d1855ec50e",
+      "proposed_sha256": "c2072239c6cf64b15342052a4d87777e9b07ec5647ba2403b6b99c16f68ea299"
+    },
+    {
+      "path": "fr_Exploring-VIVO.md",
+      "changed": true,
+      "base_sha256": "d17ac2f97a31c58cb1fd370b6ac9b65e467087b00c9761f864e8d533f448feec",
+      "proposed_sha256": "dd572b0b33f49d32263f2696a2e8c94c64dccf2e9dcdac506a0fc3400df4619b"
+    },
+    {
+      "path": "fr_HTTPS-TLS-Certificate.md",
+      "changed": true,
+      "base_sha256": "156e749f0a99d0cc7cafb7e6359bcebda9f5df22f3fb7b38ff138d749b4114f2",
+      "proposed_sha256": "1699052d86a993d3470e772e4c941c82f14b4c27d5253fcae54cecbf8a754549"
+    },
+    {
+      "path": "fr_Home.md",
+      "changed": true,
+      "base_sha256": "7635d857c4d3424e4d547fee252ab5d7395cb3e8cd094626a15228c0ef8590e6",
+      "proposed_sha256": "70a82d1f448c249c7ed49664a791f8a31ab0fb0d6a038c1c7cc58f7fe5e61d70"
+    },
+    {
+      "path": "fr_Loading-Sample-Data.md",
+      "changed": true,
+      "base_sha256": "1caf4a4a19b6b1e08735ceb7a33fb3e260d724d889b90172e0c0b565ecd75e15",
+      "proposed_sha256": "dec39c8649ce03c3cdfb6855a592e43616da054638e1ca266222cef314fd1cbb"
+    },
+    {
+      "path": "fr_Post-Deployment-Verification.md",
+      "changed": true,
+      "base_sha256": "b368c595d3e60e8f90f197da4e841b7bf3e5382168630f51bc4ddb9979e9065a",
+      "proposed_sha256": "b640dbda97fc9b1eb0b89d3d0805ef7617cfe7622374401a92af765c3e22b47b"
+    },
+    {
+      "path": "fr_Quick-Start-Evaluation.md",
+      "changed": true,
+      "base_sha256": "c3a8145d41ac89019ceaf2f9d34a4939c1f270c43790649b733b4aa2e5899d7b",
+      "proposed_sha256": "d383f0c8c51c17ba92bbf8348cf2064481a9699621584cdaa5cceed4867c3eee"
+    },
+    {
+      "path": "fr_SSH-Connection.md",
+      "changed": true,
+      "base_sha256": "491908ce3f960eadbef4bdbfaef0b7acacfc801c9bc9b8339cb5fc42346a5df3",
+      "proposed_sha256": "cf15c7ff6b145513e4686af023dceb16dba66ee44b97d2e6d6a83a590ba92b5f"
+    },
+    {
+      "path": "fr_Support.md",
+      "changed": true,
+      "base_sha256": "96ce8e52fc39919a0a517d1d60edcf563869208be7fbfd2925c8d9a6946cd0c9",
+      "proposed_sha256": "588a837a55df6bd712633ea79b373af6db9cff52dd05eacc77ab104f6f920008"
+    },
+    {
+      "path": "fr_Troubleshooting.md",
+      "changed": true,
+      "base_sha256": "c81bf7f16be958767b2e30a9b535bf88f40581fcf6d67aec854d6713f66aab80",
+      "proposed_sha256": "903ec139df145096822225a3684e2dff4b19b0059afd6b5e58835cacd146bc30"
+    }
+  ],
+  "patch_sha256": "f2ef952edcb4597f00bcc668bdc69dcb2eea6b1d6a81b927e3b9becc15506c84"
+}
