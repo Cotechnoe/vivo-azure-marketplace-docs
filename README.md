@@ -2,6 +2,8 @@
 
 > 🇫🇷 Cette page est également disponible en français : [README-fr.md](README-fr.md)
 
+> **Image 1.2.0 — review copy:** the guides linked here come from the [review package](docs/wiki-review/1.2.0/README.md). They have not yet been published to the Wiki.
+
 **VIVO** is an open-source research networking platform for connecting researcher profiles, organizations, publications and scholarly activities in a knowledge graph. Institutions can browse profiles, search indexed content and work with RDF data.
 
 VIVO is developed by its community with support from [LYRASIS](https://www.lyrasis.org). External sources and identifiers such as ORCID, Crossref and Wikidata require an appropriate data integration; this image does not connect them automatically. AI or retrieval-augmented generation (RAG) workflows also require additional integration or development.
@@ -10,13 +12,13 @@ VIVO is developed by its community with support from [LYRASIS](https://www.lyras
 
 **Image 1.2.0** contains **Ubuntu 24.04 LTS**, **VIVO 1.16.0** and **Vitro 1.16.0**, with Java 21, Tomcat 9, Solr 9, Jena TDB1 and NGINX. These components are preinstalled; an administrator configures and maintains the deployed instance.
 
-As of the publisher's 14 November 2026 review, image 1.2.0 was in a certified Marketplace preview with Go live pending. The public listing still described Ubuntu 22.04. Confirm the offer, plan and image version selected at deployment; neither the VIVO application version nor the listing's display version identifies the image version. See [release status and verification limits](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Home#image-120--status-and-verification).
+As of the publisher's 14 November 2026 review, image 1.2.0 was in a certified Marketplace preview with Go live pending. The public listing still described Ubuntu 22.04. Confirm the offer, plan and image version selected at deployment; neither the VIVO application version nor the listing's display version identifies the image version. See [release status and verification limits](docs/wiki-review/1.2.0/pages/Home.md#image-120--status-and-verification).
 
 ## Deploy and operate VIVO
 
-The intended configuration path for image 1.2.0 uses **Advanced → Custom data**, based on the image implementation; the complete Marketplace wizard has not been validated by the archived image tests. The [deployment guide](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Deploying-from-Marketplace) distinguishes that path from a direct ARM deployment. Do not assume a reference ARM template or UI definition describes the published VM wizard.
+The intended configuration path for image 1.2.0 uses **Advanced → Custom data**, based on the image implementation; the complete Marketplace wizard has not been validated by the archived image tests. The [deployment guide](docs/wiki-review/1.2.0/pages/Deploying-from-Marketplace.md) distinguishes that path from a direct ARM deployment. Do not assume a reference ARM template or UI definition describes the published VM wizard.
 
-NGINX provides HTTPS and redirects ordinary HTTP requests to HTTPS. The initial certificate is self-signed; Let's Encrypt is attempted only when the deployment supplies a FQDN and Certbot is available. A browser-trusted certificate has not been demonstrated by the archived 1.2.0 tests. Follow the [TLS guide](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/HTTPS-TLS-Certificate) to obtain and verify a certificate for your deployment.
+NGINX provides HTTPS and redirects ordinary HTTP requests to HTTPS. The initial certificate is self-signed; Let's Encrypt is attempted only when the deployment supplies a FQDN and Certbot is available. A browser-trusted certificate has not been demonstrated by the archived 1.2.0 tests. Follow the [TLS guide](docs/wiki-review/1.2.0/pages/HTTPS-TLS-Certificate.md) to obtain and verify a certificate for your deployment.
 
 Choose VM and disk capacity for your data, indexing and usage; the checks performed do not establish a minimum production size or load capacity. Review Marketplace plan pricing and Azure compute, storage, networking and backup charges before deployment. Access control, patching, certificates, backups and recovery remain administrative responsibilities. Deploying in an Azure subscription does not itself guarantee data residency or regulatory compliance; assess data flows and external services for your institution.
 
@@ -24,22 +26,24 @@ Choose VM and disk capacity for your data, indexing and usage; the checks perfor
 
 ## Documentation
 
-Full deployment and administration documentation is available in the **[project wiki](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki)**.
+The links below open the **proposed image 1.2.0 pages in this repository**. Publishing those pages to the Wiki remains a separate step.
+
+The [published Wiki (earlier guidance)](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki) remains available separately; it does not yet describe the 1.2.0 changes proposed here.
 
 > 🇫🇷 Les pages de documentation sont également disponibles en français — voir la colonne **Français** ci-dessous.
 
-| Page | Description | Français |
+| Proposed English page | Description | Proposition française |
 |------|-------------|----------|
-| [Quick Start Evaluation](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Quick-Start-Evaluation) | Deploy a temporary test environment to evaluate the Marketplace offer | [Évaluation rapide](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/fr_Quick-Start-Evaluation) |
-| [Deploying from Marketplace](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Deploying-from-Marketplace) | Deploy VIVO from Azure Marketplace | [Déployer depuis le Marketplace](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/fr_Deploying-from-Marketplace) |
-| [SSH Connection](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/SSH-Connection) | Connecting to your VM with an SSH key | [Connexion SSH](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/fr_SSH-Connection) |
-| [Post-Deployment Verification](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Post-Deployment-Verification) | Verifying services and accessing VIVO | [Vérification post-déploiement](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/fr_Post-Deployment-Verification) |
-| [HTTPS / TLS Certificate](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/HTTPS-TLS-Certificate) | Let's Encrypt attempts, TLS verification, renewal, and custom certs | [Certificat HTTPS / TLS](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/fr_HTTPS-TLS-Certificate) |
-| [Configuring VIVO](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Configuring-VIVO) | Namespace, credentials, and i18n settings | [Configuration de VIVO](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/fr_Configuring-VIVO) |
-| [Loading Sample Data](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Loading-Sample-Data) | Load sample data to explore VIVO (with and without i18n) | [Chargement des données d'exemple](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/fr_Loading-Sample-Data) |
-| [Exploring VIVO](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Exploring-VIVO) | Navigate the interface, search, profiles, Site Admin | [Explorer VIVO](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/fr_Exploring-VIVO) |
-| [Troubleshooting](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Troubleshooting) | Common deployment and runtime issues | [Dépannage](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/fr_Troubleshooting) |
-| [Support](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/Support) | Publisher and community support channels, contact information | [Support](https://github.com/Cotechnoe/vivo-azure-marketplace-docs/wiki/fr_Support) |
+| [Quick Start Evaluation](docs/wiki-review/1.2.0/pages/Quick-Start-Evaluation.md) | Deploy a temporary test environment to evaluate the Marketplace offer | [Évaluation rapide](docs/wiki-review/1.2.0/pages/fr_Quick-Start-Evaluation.md) |
+| [Deploying from Marketplace](docs/wiki-review/1.2.0/pages/Deploying-from-Marketplace.md) | Deploy VIVO from Azure Marketplace | [Déployer depuis le Marketplace](docs/wiki-review/1.2.0/pages/fr_Deploying-from-Marketplace.md) |
+| [SSH Connection](docs/wiki-review/1.2.0/pages/SSH-Connection.md) | Connecting to your VM with an SSH key | [Connexion SSH](docs/wiki-review/1.2.0/pages/fr_SSH-Connection.md) |
+| [Post-Deployment Verification](docs/wiki-review/1.2.0/pages/Post-Deployment-Verification.md) | Verifying services and accessing VIVO | [Vérification post-déploiement](docs/wiki-review/1.2.0/pages/fr_Post-Deployment-Verification.md) |
+| [HTTPS / TLS Certificate](docs/wiki-review/1.2.0/pages/HTTPS-TLS-Certificate.md) | Let's Encrypt attempts, TLS verification, renewal, and custom certs | [Certificat HTTPS / TLS](docs/wiki-review/1.2.0/pages/fr_HTTPS-TLS-Certificate.md) |
+| [Configuring VIVO](docs/wiki-review/1.2.0/pages/Configuring-VIVO.md) | Namespace, credentials, and i18n settings | [Configuration de VIVO](docs/wiki-review/1.2.0/pages/fr_Configuring-VIVO.md) |
+| [Loading Sample Data](docs/wiki-review/1.2.0/pages/Loading-Sample-Data.md) | Load sample data to explore VIVO (with and without i18n) | [Chargement des données d'exemple](docs/wiki-review/1.2.0/pages/fr_Loading-Sample-Data.md) |
+| [Exploring VIVO](docs/wiki-review/1.2.0/pages/Exploring-VIVO.md) | Navigate the interface, search, profiles, Site Admin | [Explorer VIVO](docs/wiki-review/1.2.0/pages/fr_Exploring-VIVO.md) |
+| [Troubleshooting](docs/wiki-review/1.2.0/pages/Troubleshooting.md) | Common deployment and runtime issues | [Dépannage](docs/wiki-review/1.2.0/pages/fr_Troubleshooting.md) |
+| [Support](docs/wiki-review/1.2.0/pages/Support.md) | Publisher and community support channels, contact information | [Support](docs/wiki-review/1.2.0/pages/fr_Support.md) |
 
 ---
 

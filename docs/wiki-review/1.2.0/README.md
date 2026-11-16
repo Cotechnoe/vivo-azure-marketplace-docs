@@ -24,7 +24,7 @@ Before a separately authorized Wiki integration, re-read the Wiki's remote state
 
 The preparation of this PR verifies the patch in a temporary repository created from the recorded base and compares every resulting page with the snapshots. It performs no Wiki push. Publication uses the separate [GitHub Wiki Git workflow](https://docs.github.com/en/communities/documenting-your-project-with-wikis/adding-or-editing-wiki-pages#adding-or-editing-wiki-pages-locally) only after the applicable authorization.
 
-Coordinate the updated root README links with that later Wiki publication: the new release-status anchors in those links are not yet present in the published Wiki. Review the final rendered Wiki and language navigation after publication; a repository preview is not the Wiki renderer.
+Until a separately authorized Wiki publication is verified, the root README links for image 1.2.0 point to the proposed pages in this review package, including the release-status anchors. Both README files label these pages as review copies and identify the published Wiki as earlier guidance. Merging the README update therefore does not depend on the Wiki changing at the same time. After publication, verify the rendered Wiki, language navigation and anchors before switching the README links back to the published pages in a separate change; a repository preview is not the Wiki renderer.
 
 ## Validation and limits
 
